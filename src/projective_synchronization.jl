@@ -2,8 +2,10 @@ module projective_synchronization
 
 import StructArrays, Distributions
 
-using LinearAlgebra, StaticArrays, Statistics 
+using LinearAlgebra, StaticArrays, Statistics, SparseArrays, Graphs
 
+#Common
+include("common/datatypes.jl")
 
 #Distances
 include("distance_measures/distances.jl")

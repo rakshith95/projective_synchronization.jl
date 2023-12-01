@@ -19,4 +19,4 @@ function orthogonal_projection_distance(a::AbstractVector, b::AbstractVector)
     b = SVector{length(b), eltype(b)}(b/norm(b))
     return norm((SMatrix{length(a),length(a), eltype(a)}(I) - a*a')*b  )
     
-    end
+end

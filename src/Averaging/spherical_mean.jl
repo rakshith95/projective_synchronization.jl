@@ -34,5 +34,5 @@ end
 # A = SMatrix{3,3,Float64}(rand(3,3))
 # normalize_column(x) = x/norm(x)
 # B = mapslices(normalize_column, A, dims=1)
-# spherical_mean(A)
+# spherical_mean(A)#, initialize=weiszfeld);
 
