@@ -1,11 +1,21 @@
-function ls_euclidean(n::Int, X::AbstractVector)
-    # least squares minimization for hᵢ ~= c
+function minimize_euclidean(n::Int, X::AbstractVector)
     #X is stacked vector of some m=length(X)/n unit vectors of dimension n each
     A = kron(ones(div(length(X), n)), SMatrix{n,n,eltype(X)}(I))
     return A\X
 end
 
+function ls_euclidean(M::AbstractMatrix)
+    # least squares minimization for hᵢ ~= c
+
+    #Make cols unit vectors
+    M = M ./ norm.(eachcol(M))'
+    n = size(M,1)
+    X = reduce(vcat, eachcol(M))
+    return minimize_euclidean(n, X)
+end 
+
 function make_crossProduct_matrix(a::AbstractVector)
+    # From "Uncalibrated Dynamic Stereo Using Parallax" by Francesco Malapelle et al. : https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=6703743
     n = length(a)
     B = MMatrix{div(n*(n-1),2), n, eltype(a)}(zeros(div(n*(n-1),2), n))
     x = 1
@@ -25,8 +35,7 @@ function make_crossProduct_matrix(a::AbstractVector)
 end
 
 function ls_crossProduct(M::AbstractMatrix)
-    #Each column of M is a vectorized Projetive Matrix
-    # From "Uncalibrated Dynamic Stereo Using Parallax" by Francesco Malapelle et al. : https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=6703743
+    #Each column of M is the vectorized Projetive Matrix
     hₓᵢ = make_crossProduct_matrix.(eachcol(M))
     hₓ = reduce(vcat, hₓᵢ)
     U_Σ_vt = svd(hₓ)

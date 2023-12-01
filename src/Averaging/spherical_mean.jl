@@ -2,7 +2,7 @@ function spherical_mean(M::AbstractArray;  initialize=nothing, max_iterations=1e
     # Columns of M are unit vectors which need to be averaged 
     # initialize
     if isnothing(initialize)
-        c₀ = mean.(eachrow(M))
+        c₀ = mean.(eachrow(M./norm(eachcol(M)')))
     else
         c₀ = initialize(M)
     end
@@ -30,12 +30,6 @@ function spherical_mean(M::AbstractArray;  initialize=nothing, max_iterations=1e
 
     return c
 end
-
-
-
-# a = rand(4)
-# a = a/norm(a)
-# A = SMatrix{4,4,Float64}([a;a;a;a])
 
 # A = SMatrix{3,3,Float64}(rand(3,3))
 # normalize_column(x) = x/norm(x)
