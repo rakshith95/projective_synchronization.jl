@@ -42,5 +42,3 @@ function weiszfeld(M::AbstractMatrix; max_iterations=1e3, initialize=nothing, δ
     end
     return c
 end
-# A = SMatrix{3,4,Float64}(rand(3,4))
-# weiszfeld(A)
