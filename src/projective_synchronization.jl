@@ -18,4 +18,7 @@ include("Averaging/least_squares.jl")
 #Synchroniation
 include("synchronization/iterative_synchronization.jl")
 
+#Synthetic
+include("synthetic/simulation.jl")
+
 end # module

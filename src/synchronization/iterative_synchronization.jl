@@ -1,7 +1,8 @@
 function iterative_projective_synchronization(Z::AbstractMatrix{Projectivity};kwargs...) 
     #Z contains nxn relative projective quantities (4x4 matrices) for n nodes
     
-    method = get(kwargs, :averaging_method, "least_squares")
+    method = get(kwargs, :averaging_method, "sphere")
+    display(method)
     dim = get(kwargs, :dimension, 4)
     max_it = get(kwargs, :max_iterations, 1000)
     max_updates = get(kwargs, :max_updates, 70)
@@ -42,35 +43,38 @@ function iterative_projective_synchronization(Z::AbstractMatrix{Projectivity};kw
     iter=0
     while iter < max_it
         iter += 1
-        j = rand(1:n)
-        if updated[j]  > max_updates || steady[j]
+        i = rand(1:n)
+        if i == anchor
+            continue
+        end
+        if updated[i]  > max_updates || steady[i]
             continue
         end
         
-        N = neighbors(G, j)
+        N = neighbors(G, i)
         if iszero(updated[N])
             continue
         end
 
-        oldX = X[j]
-        X[j] = Projectivity(average(j, N[findall(!zero, updated[N])], Z, X))
-        updated[j] += 1
-        steady[j] = updated[j] > min_updates && norm(oldX.P - X[j].P)/norm(oldX.P) < δ
-    
-        if all(steady) || max_it || all(updated .> max_updates)
+        oldX = X[i]
+        X[i] = Projectivity(average(i, X, N[updated[N].!=0], Z))
+        updated[i] += 1
+        steady[i] = updated[i] > min_updates && norm((oldX - X[i]).P)/norm(oldX.P) < δ
+        
+        if all(steady) || iter > max_it || all(updated .> max_updates)
             break
         end
 
     end
-    
+    println(anchor,"\t", "anchor")
     return X
 end   
 
-function average_ls_euclidean(j::Int, X::AbstractVector{Projectivity}, N::AbstractVector{T}, Z::AbstractMatrix{Projectivity}) where T
+function average_ls_euclidean(i::Int, X::AbstractVector{Projectivity}, N::AbstractVector{T}, Z::AbstractMatrix{Projectivity}) where T
     n = size(X[1].P)[1]
     M = zeros(n^2)
-    for i in N
-        h = vec(Z[j,i].P*X[i].P)
+    for j in N
+        h = vec((Z[i,j]*X[j]).P)
         M = [M h]
     end
     M = M[:,2:end]
@@ -80,11 +84,11 @@ function average_ls_euclidean(j::Int, X::AbstractVector{Projectivity}, N::Abstra
 end
 
 
-function average_ls_crossProduct(j::Int, X::AbstractVector{Projectivity}, N::AbstractVector{T}, Z::AbstractMatrix{Projectivity}) where T
+function average_ls_crossProduct(i::Int, X::AbstractVector{Projectivity}, N::AbstractVector{T}, Z::AbstractMatrix{Projectivity}) where T
     n = size(X[1].P)[1]
     M = zeros(n^2)
-    for i in N
-        h = vec(Z[j,i].P*X[i].P)
+    for j in N
+        h = vec((Z[i,j]*X[j]).P)
         M = [M h]
     end
     M = M[:,2:end]
@@ -93,20 +97,20 @@ function average_ls_crossProduct(j::Int, X::AbstractVector{Projectivity}, N::Abs
     return SMatrix{n,n,Float64}(avg)
 end
 
-function average_sphere(j::Int, X::AbstractVector{Projectivity}, N::AbstractVector{T}, Z::AbstractMatrix{Projectivity}) where T
+function average_sphere(i::Int, X::AbstractVector{Projectivity}, N::AbstractVector{T}, Z::AbstractMatrix{Projectivity}) where T
     n = size(X[1].P)[1]
     M = zeros(n^2)
-    for i in N
-        h = vec(Z[j,i].P*X[i].P)
+    for j in N
+        h = vec((Z[i,j]*X[j]).P)
         M = [M h]
     end
     M = M[:,2:end]
 
     #identity antipodal points
     a = M[:,1]
-    for i=2:size(M,2)
-        if dot(a,M[:,i]) < 0
-            M[:,i] = -M[:,i]
+    for j=2:size(M,2)
+        if dot(a,M[:,j]) < 0
+            M[:,j] = -M[:,j]
         end
     end
 
@@ -114,11 +118,11 @@ function average_sphere(j::Int, X::AbstractVector{Projectivity}, N::AbstractVect
     return SMatrix{n,n,Float64}(avg)
 end
 
-function average_weiszfeld(j::Int, X::AbstractVector{Projectivity}, N::AbstractVector{T}, Z::AbstractMatrix{Projectivity}) where T
+function average_weiszfeld(i::Int, X::AbstractVector{Projectivity}, N::AbstractVector{T}, Z::AbstractMatrix{Projectivity}) where T
     n = size(X[1].P)[1]
     M = zeros(n^2)
-    for i in N
-        h = vec(Z[j,i].P*X[i].P)
+    for j in N
+        h = vec((Z[i,j]*X[j]).P)
         M = [M h]
     end
     M = M[:,2:end]
@@ -127,38 +131,36 @@ function average_weiszfeld(j::Int, X::AbstractVector{Projectivity}, N::AbstractV
     return SMatrix{n,n,Float64}(avg)
 end
 
-function average_ls_orthogonal(j::Int, X::AbstractVector{Projectivity}, N::AbstractVector{T}, Z::AbstractMatrix{Projectivity}) where T
+function average_ls_orthogonal(i::Int, X::AbstractVector{Projectivity}, N::AbstractVector{T}, Z::AbstractMatrix{Projectivity}) where T
     n = size(X[1].P)[1]
-    M = zeros(n^2)
-    for i in N
-        h = vec(X[i].P)
-        M = [M (SMatrix{n^2,n^2, Float64}(I) - dot(h,h)) * kron(SMatrix{n,n,Float64}(I), Z[i,j].P )]
+    M = zeros(n^2, n^2)
+    for j in N
+        h = vec(X[j].P)
+        M = vcat(M,(SMatrix{n^2,n^2, Float64}(I) - (h*h')/(h'*h) ) * kron(SMatrix{n,n,Float64}(I), Z[j,i].P ))
     end
-    M = M[:,2:end]
-
+    M = M[n^2+1:end,:]
     S = svd(M)
     return SMatrix{n,n,Float64}( reshape(S.V[:,end],n,n) )
 end
 
-function average_lsg(j::Int, X::AbstractVector{Projectivity}, N::AbstractVector{T}, Z::AbstractMatrix{Projectivity}) where T
+function average_lsg(i::Int, X::AbstractVector{Projectivity}, N::AbstractVector{T}, Z::AbstractMatrix{Projectivity}) where T
     n = size(X[1].P)[1]
-    M = zeros(n^2)
-    for i in N
-        h = vec(X[i].P)
-        M = [M (dot(h,h)*SMatrix{n^2,n^2, Float64}(I) - h*h' ) * kron(SMatrix{n,n,Float64}(I), Z[i,j].P) ]
+    M = zeros(n^2, n^2)
+    for j in N
+        h = vec(X[j].P)
+        M = vcat(M,((h'*h)*SMatrix{n^2,n^2, Float64}(I) - h*h' ) * kron(SMatrix{n,n,Float64}(I), Z[j,i].P) )
     end
-    M = M[:,2:end]
-
+    M = M[n^2+1:end,:]
     S = svd(M)
     return SMatrix{n,n,Float64}( reshape(S.V[:,end],n,n) )
 end
 
-function average_dyadic(j::Int, X::AbstractVector{Projectivity}, N::AbstractVector{T}, Z::AbstractMatrix{Projectivity}) where T
+function average_dyadic(i::Int, X::AbstractVector{Projectivity}, N::AbstractVector{T}, Z::AbstractMatrix{Projectivity}) where T
     n = size(X[1].P)[1]
     M = zeros(n^2, n^2)
 
-    for i in N
-        h = vec(Z[j,i].P*X[i].P)
+    for j in N
+        h = vec((Z[i,j]*X[j]).P)
         M = M + (h*h')/dot(h,h)
     end
     
