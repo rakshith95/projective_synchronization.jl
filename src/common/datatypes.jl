@@ -1,4 +1,4 @@
-import Base: inv, *, +, - 
+import Base: inv, *, +, -, /
 
 struct Projectivity{Q}
     P::Q
@@ -8,9 +8,61 @@ end
 Projectivity(P::Q) where Q = Projectivity(P, true)
 Projectivity(b::Bool) = Projectivity(nothing, b)
 
+function unwrap(Q::Projectivity)
+    if Q.exists
+        display(Q.P)
+        return Q.P
+    else
+        return false
+    end
+end
+
+function unwrap(Z::AbstractMatrix{Projectivity})
+    n = size(Z,1)
+    dims=0
+    T = missing
+    for i=1:n
+        for j=1:n
+            if Z[i,j].exists
+                dims = size(Z[i,j].P, 1)
+                T = eltype(Z[i,j].P)
+                break
+            end
+        end
+    end
+    if dims==0
+        return false
+    end
+    Z′ = MMatrix{n*dims,n*dims,ComplexF64}(zeros(n*dims, n*dims))
+    for i=1:dims:(n*dims)-dims+1
+        for j=1:dims:(n*dims)-dims+1
+            if Z[div(i,dims)+1,div(j,dims)+1].exists
+                Z′[i:i+dims-1, j:j+dims-1] = Z[div(i,dims)+1,div(j,dims)+1].P
+            end
+        end
+    end
+    return Z′
+end
+
 function unit_normalize(P::Projectivity)
     if P.exists
         return Projectivity(P.P/norm(P.P))
+    else
+        return Projectivity(false)
+    end
+end
+
+function unit_normalize(P::Projectivity, metric)
+    if P.exists
+        if occursin("det", lowercase(metric))
+            d = det(P.P)
+            n = size(P.P,1)
+            if d>0
+                return Projectivity(P.P/(d^(1/n)))
+            elseif d<0
+                return Projectivity(P.P/(Complex(d)^(1/n)))
+            end
+        end
     else
         return Projectivity(false)
     end
@@ -57,6 +109,30 @@ end
 
 function *(P::Projectivity, s::T) where T<:AbstractFloat
     *(s,P)
+end
+
+function *(A::AbstractMatrix, P::Projectivity)
+    if P.exists
+        return A*P.P
+    else
+        return A
+    end
+end
+
+function *(P::Projectivity, A::AbstractMatrix)
+    if P.exists
+        return P.P*A
+    else
+        return A
+    end
+end
+
+function /(A::Projectivity, B::Projectivity)
+    if A.exists && B.exists
+        return Projectivity(A.P / B.P)
+    else
+        return Projectivity(false)
+    end
 end
 
 function inv(P::Projectivity)

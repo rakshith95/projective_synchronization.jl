@@ -29,13 +29,21 @@ function create_synthetic(σ;kwargs...)
     if normalize_matrix
         Z = unit_normalize.(Z)
     end
-
-    X_sol = iterative_projective_synchronization(Z; kwargs...)
-
+    X_sol = projectivity_synch_spectral(copy(Z))
+    # X_sol = iterative_projective_synchronization(Z; kwargs...)
+    return X_gt, X_sol
     # X_solᵢ*Q = Xᵢ
     # Either take Q = Xᵢ for the anchor node i, OR
     # Take avg of Qᵢ = inv(X_solᵢ)*Xᵢ
 
 end
 
-# X = create_synthetic(0, frames=15, averaging_method="gaia");
+# X_gt, X_ans = create_synthetic(0.0, frames=15);
+
+# Q =  inv(unit_normalize(X_ans[1]))*X_gt[1]
+# Q2 = inv(unit_normalize(X_ans[2]))*X_gt[2]
+# 
+# 
+# unit_normalize(Q).P
+# unit_normalize(Q2).P
+# 

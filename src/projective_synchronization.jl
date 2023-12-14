@@ -1,6 +1,6 @@
 module projective_synchronization
 
-import StructArrays, Distributions
+import StructArrays, Distributions, MAT
 
 using LinearAlgebra, StaticArrays, Statistics, SparseArrays, Graphs
 
@@ -17,6 +17,7 @@ include("Averaging/least_squares.jl")
 
 #Synchroniation
 include("synchronization/iterative_synchronization.jl")
+include("synchronization/global_synchronization.jl")
 
 #Synthetic
 include("synthetic/simulation.jl")
