@@ -1,4 +1,4 @@
-function weiszfeld(M::AbstractMatrix; max_iterations=1e3, initialize=nothing, δ=1e-10, σ=1e-3, Δ=rand(Distributions.Normal(0, σ), size(M)[2]) )
+function weiszfeld(M::AbstractMatrix; max_iterations=1e3, initialize=nothing, δ=1e-10, σ=1e-3, Δ=rand(Distributions.Normal(0, σ), size(M)[1]) )
     # As described in L1 rotation averaging using the Weiszfeld algorithm: Hartley et al.
     #Initialize
     #Make cols of M unit vectors
@@ -40,5 +40,5 @@ function weiszfeld(M::AbstractMatrix; max_iterations=1e3, initialize=nothing, δ
             break
         end
     end
-    return c
+    return c/norm(c)
 end

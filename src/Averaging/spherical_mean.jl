@@ -17,9 +17,14 @@ function spherical_mean(M::AbstractArray;  initialize=nothing, max_iterations=1e
             c_prev = c
             c = zeros(length(c_prev))
             for i in collect(1:size(M,2))
-                if c_prev'*M[:,i] < 1.0
+                if (c_prev'*M[:,i])^2 < 1.0
                     c = c + M[:,i]/sqrt( 1 - (c_prev'*M[:,i])^2 )
+                
                 end
+            end
+            if isapprox(norm(c),0.0)
+                c = c_prev
+                break 
             end
             c = c/norm(c)
             it += 1

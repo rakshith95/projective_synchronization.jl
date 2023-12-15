@@ -8,16 +8,16 @@ end
 Projectivity(P::Q) where Q = Projectivity(P, true)
 Projectivity(b::Bool) = Projectivity(nothing, b)
 
-function unwrap(Q::Projectivity)
+function unwrap!(Q::Projectivity, P::AbstractMatrix{T}) where T
     if Q.exists
-        display(Q.P)
-        return Q.P
+        P[:,:] = @views Q.P
+        return true
     else
         return false
     end
 end
 
-function unwrap(Z::AbstractMatrix{Projectivity})
+function unwrap!(Z′::AbstractMatrix{F}, Z::AbstractMatrix{Projectivity}) where F
     n = size(Z,1)
     dims=0
     T = missing
@@ -33,15 +33,14 @@ function unwrap(Z::AbstractMatrix{Projectivity})
     if dims==0
         return false
     end
-    Z′ = MMatrix{n*dims,n*dims,ComplexF64}(zeros(n*dims, n*dims))
+
     for i=1:dims:(n*dims)-dims+1
         for j=1:dims:(n*dims)-dims+1
             if Z[div(i,dims)+1,div(j,dims)+1].exists
-                Z′[i:i+dims-1, j:j+dims-1] = Z[div(i,dims)+1,div(j,dims)+1].P
+                Z′[i:i+dims-1, j:j+dims-1] = @views Z[div(i,dims)+1,div(j,dims)+1].P
             end
         end
     end
-    return Z′
 end
 
 function unit_normalize(P::Projectivity)

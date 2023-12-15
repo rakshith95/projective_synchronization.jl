@@ -15,10 +15,11 @@ function projectivity_synch_spectral(Z::AbstractMatrix{Projectivity})
     end
     
     iD = diagm(1 ./sum.(eachcol(Adj)))
-    Z′ = unwrap(Z)
+    Z′ = sparse(zeros(Complex, n*dims, n*dims))
+    unwrap!(Z′, Z)
     S = kron(iD, SMatrix{dims,dims,ComplexF64}(I))*Z′
     # M, will contain the blocks of the nodes 
-    M = eigvecs(S)[:,end-dims+1:end] # eigen vectors corresponding to the 'dims' largest eigenvalues
+    λ, M = eigs(S, nev=4)
     M = M[:, end:-1:1] # Reverse order for highest to lowest
     for k=1:n
         Xₖ = M[(k-1)*dims + 1:(k-1)*dims+dims,:]

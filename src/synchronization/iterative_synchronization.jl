@@ -1,4 +1,4 @@
-function iterative_projective_synchronization(Z::AbstractMatrix{Projectivity};kwargs...) 
+function iterative_projective_synchronization(Z::AbstractMatrix{Projectivity};X₀=nothing,  kwargs...) 
     #Z contains nxn relative projective quantities (4x4 matrices) for n nodes
     
     method = get(kwargs, :averaging_method, "sphere")
@@ -34,7 +34,11 @@ function iterative_projective_synchronization(Z::AbstractMatrix{Projectivity};kw
     updated = zeros(Int, n)
 
     # Initialize nodes to have identity dimxdim matrices (this will be overridden for all but the anchor)
-    X = SizedVector{n, Projectivity}(repeat([Projectivity(SMatrix{dim,dim, Float64}(I))], n)) 
+    if isnothing(X₀)
+        X = SizedVector{n, Projectivity}(repeat([Projectivity(SMatrix{dim,dim, Float64}(I))], n)) 
+    else
+        X = X₀
+    end
     # Set anchor node according to maximum closeness centrality
     C = closeness_centrality(G)
     _,anchor = findmax(C)
@@ -66,7 +70,7 @@ function iterative_projective_synchronization(Z::AbstractMatrix{Projectivity};kw
         end
 
     end
-    println(anchor,"\t", "anchor")
+    # println(anchor,"\t", "anchor")
     return X
 end   
 
@@ -147,7 +151,7 @@ function average_lsg(i::Int, X::AbstractVector{Projectivity}, N::AbstractVector{
     n = size(X[1].P)[1]
     M = zeros(n^2, n^2)
     for j in N
-        h = vec(X[j].P)
+        h = vec(unit_normalize(X[j]).P)
         M = vcat(M,((h'*h)*SMatrix{n^2,n^2, Float64}(I) - h*h' ) * kron(SMatrix{n,n,Float64}(I), Z[j,i].P) )
     end
     M = M[n^2+1:end,:]
@@ -160,9 +164,9 @@ function average_dyadic(i::Int, X::AbstractVector{Projectivity}, N::AbstractVect
     M = zeros(n^2, n^2)
 
     for j in N
-        h = vec((Z[i,j]*X[j]).P)
-        M = M + (h*h')/dot(h,h)
+        h = vec((Z[i,j]*unit_normalize(X[j])).P)
+        M = M + (h*h')/(h'*h)
     end
-    
-    return SMatrix{n,n,Float64}(reshape(eigvecs(M)[:,end],n,n))
+    ev_max = eigvecs(M)[:,end]
+    return SMatrix{n,n,Float64}(reshape(ev_max,n,n))
 end

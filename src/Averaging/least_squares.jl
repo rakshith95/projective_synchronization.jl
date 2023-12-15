@@ -46,4 +46,17 @@ function ls_crossProduct(M::AbstractMatrix)
     return V[:,end]
 end
 
-# c = ls_crossProduct(A)
+
+function ls_crossScale(M::AbstractMatrix)
+    #Each column of M is the vectorized Projetive Matrix
+    #Make cols unit vectors
+    M = M ./ norm.(eachcol(M))'
+    hₓᵢ = make_crossProduct_matrix.(eachcol(M))
+    hₓ = reduce(vcat, hₓᵢ)
+    U_Σ_vt = svd(hₓ)
+    V = U_Σ_vt.V
+    #= Last column of V in SVD, i.e. the eigenvector corresponding to the minimum singular value minimizes ||hₓc||₂ for ||c||=1
+    https://math.berkeley.edu/~hutching/teach/54-2017/svd-notes.pdf shows proof for opposite case, i.e. max ||Ax|| for ||x||=1  =#
+
+    return V[:,end]
+end

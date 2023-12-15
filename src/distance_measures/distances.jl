@@ -1,4 +1,4 @@
-function anglular_distance(a::AbstractVector, b::AbstractVector)
+function angular_distance(a::AbstractVector, b::AbstractVector)
     a = a/norm(a)
     b = b/norm(b)
 

@@ -2,7 +2,7 @@ module projective_synchronization
 
 import StructArrays, Distributions, MAT
 
-using LinearAlgebra, StaticArrays, Statistics, SparseArrays, Graphs
+using LinearAlgebra, StaticArrays, Statistics, SparseArrays, Graphs, Arpack
 
 #Common
 include("common/datatypes.jl")
@@ -21,5 +21,6 @@ include("synchronization/global_synchronization.jl")
 
 #Synthetic
 include("synthetic/simulation.jl")
+include("synthetic/experiments.jl")
 
 end # module
