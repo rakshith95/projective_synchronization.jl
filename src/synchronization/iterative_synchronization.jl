@@ -2,7 +2,6 @@ function iterative_projective_synchronization(Z::AbstractMatrix{Projectivity};Xâ
     #Z contains nxn relative projective quantities (4x4 matrices) for n nodes
     
     method = get(kwargs, :averaging_method, "sphere")
-    display(method)
     dim = get(kwargs, :dimension, 4)
     max_it = get(kwargs, :max_iterations, 1000)
     max_updates = get(kwargs, :max_updates, 70)

@@ -1,8 +1,8 @@
 module projective_synchronization
 
-import StructArrays, Distributions, MAT
+import StructArrays, Distributions, MAT, PlotlyJS
 
-using LinearAlgebra, StaticArrays, Statistics, SparseArrays, Graphs, Arpack
+using LinearAlgebra, StaticArrays, Statistics, SparseArrays, Graphs, Arpack, ProgressBars
 
 #Common
 include("common/datatypes.jl")
@@ -22,5 +22,8 @@ include("synchronization/global_synchronization.jl")
 #Synthetic
 include("synthetic/simulation.jl")
 include("synthetic/experiments.jl")
+
+#Plots
+include("plots/plot_simulation.jl")
 
 end # module

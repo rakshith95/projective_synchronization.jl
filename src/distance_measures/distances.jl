@@ -1,9 +1,14 @@
 function angular_distance(a::AbstractVector, b::AbstractVector)
     a = a/norm(a)
     b = b/norm(b)
-
-    θ = acos(dot(a,b))
-    return θ
+    dotval = dot(a,b)
+    if isapprox(dotval, 1.0)
+        dotval = 1.0
+    elseif isapprox(dotval, -1.0)
+        dotval = -1.0
+    end
+    θ = acos(dotval)
+    return min(θ, π-θ)
 end
 
 function normalized_euclidean_distance(a::AbstractVector, b::AbstractVector; p=2)

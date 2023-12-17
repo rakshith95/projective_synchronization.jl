@@ -59,10 +59,11 @@ function create_synthetic(σ;error=orthogonal_projection_distance,average=spheri
             err_method[i] = error(xgtᵢ, xsolᵢ)
         end
         err = hcat(err, err_method)
+        break
     end
     return err
 
 end
 
-# E = create_synthetic(0.01, error=angular_distance, frames=15);
-# rad2deg.(mean.(eachcol(E)))
+# Err = create_synthetic(0.1, error=angular_distance, frames=15);
+# rad2deg.(mean.(eachcol(Err)))
