@@ -46,7 +46,7 @@ function create_synthetic(σ;error=orthogonal_projection_distance,average=spheri
         err[i] = error(xgtᵢ, xsolᵢ)
     end
     
-    for method in ["sphere", "dyadic", "least-squares-orthogonal", "gaia", "euclidean", "crossproduct", "weiszfeld" ]
+    for method in ["sphere", "dyadic", "least-squares-orthogonal", "gaia", "crossproduct", "euclidean", "weiszfeld" ]
         X_sol_iterative = iterative_projective_synchronization(copy(Z);averaging_method=method,kwargs...)
         for i=1:n
             Q[:,i] = vec((inv(X_sol_iterative[i])*X_gt[i]).P)
@@ -59,11 +59,10 @@ function create_synthetic(σ;error=orthogonal_projection_distance,average=spheri
             err_method[i] = error(xgtᵢ, xsolᵢ)
         end
         err = hcat(err, err_method)
-        break
     end
     return err
 
 end
 
-# Err = create_synthetic(0.1, error=angular_distance, frames=15);
+# Err = create_synthetic(0.1, error=angular_distance,  frames=15);
 # rad2deg.(mean.(eachcol(Err)))

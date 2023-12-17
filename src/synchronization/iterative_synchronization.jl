@@ -69,7 +69,7 @@ function iterative_projective_synchronization(Z::AbstractMatrix{Projectivity};Xâ
         end
 
     end
-    # println(anchor,"\t", "anchor")
+    
     return X
 end   
 
