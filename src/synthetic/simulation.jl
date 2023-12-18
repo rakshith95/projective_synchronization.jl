@@ -1,8 +1,9 @@
-function create_synthetic(σ;error=orthogonal_projection_distance,average=spherical_mean, kwargs...)
+function create_synthetic(σ;error=orthogonal_projection_distance,average=spherical_mean, averaging_methods=["sphere", "dyadic", "least-squares-orthogonal", "gaia", "crossproduct", "euclidean", "weiszfeld" ], kwargs...)
     normalize_matrix = get(kwargs, :normalize_matrix, false)
     dims = get(kwargs, :dimension, 4)
     n = get(kwargs, :frames, 25)
     ρ = get(kwargs, :holes_density, 0.5) 
+    Ρ = get(kwargs, :outliers, 0.0)
 
     X_gt = SizedVector{n, Projectivity}(repeat([Projectivity(false)],n)) # Ground truth nodes with dimxdim matrices
     for i=1:n
@@ -13,6 +14,9 @@ function create_synthetic(σ;error=orthogonal_projection_distance,average=spheri
     Z = SizedMatrix{n,n,Projectivity}(repeat([Projectivity(false)],n,n)) # Relative projectivities
     for i=1:n
         for j=1:i
+            if i==j
+                continue
+            end
             Z_ij = X_gt[i]*inv(X_gt[j]) + Projectivity(rand(Distributions.Normal(0, σ), dims, dims)) # Add noise
             Z[i,j] =  Z_ij
             Z[j,i] = inv(Z_ij) # Symmetric block is inverse
@@ -26,6 +30,15 @@ function create_synthetic(σ;error=orthogonal_projection_distance,average=spheri
     A = triu(A,1) + triu(A,1)'
     Z = Z.*A
     
+    # outliers
+    num_UT =  length(findall(triu(A,1) .!= 0))
+    num_outliers = Int(round(Ρ*num_UT))
+    UT_outliers = StatsBase.sample( findall(triu(A,1).!=0), num_outliers, replace=false  )
+    for ind in UT_outliers
+        Z[ind] = Projectivity(rand(dims,dims))
+        Z[CartesianIndex(reverse(ind.I))] = inv(Z[ind])
+    end
+
     if normalize_matrix
         Z = unit_normalize.(Z)
     end
@@ -46,8 +59,8 @@ function create_synthetic(σ;error=orthogonal_projection_distance,average=spheri
         err[i] = error(xgtᵢ, xsolᵢ)
     end
     
-    for method in ["sphere", "dyadic", "least-squares-orthogonal", "gaia", "crossproduct", "euclidean", "weiszfeld" ]
-        X_sol_iterative = iterative_projective_synchronization(copy(Z);averaging_method=method,kwargs...)
+    for method in averaging_methods
+        X_sol_iterative = iterative_projective_synchronization(copy(Z);X₀=X_sol_spectral, averaging_method=method,kwargs...)
         for i=1:n
             Q[:,i] = vec((inv(X_sol_iterative[i])*X_gt[i]).P)
         end
@@ -64,5 +77,5 @@ function create_synthetic(σ;error=orthogonal_projection_distance,average=spheri
 
 end
 
-# Err = create_synthetic(0.1, error=angular_distance,  frames=15);
+# Err = create_synthetic(0.0, error=angular_distance, outliers=0.1,  frames=15);
 # rad2deg.(mean.(eachcol(Err)))

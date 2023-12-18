@@ -1,12 +1,11 @@
-using PlotlyJS
+# import GLMakie
 
 function plot_sensitivity_boxplot(Errs::Vector{Vector{Vector{T}}}, methods::AbstractVector{String}; σ=collect(0:0.1:0.5)) where {T <: AbstractFloat}
-    num_trials = length(E[1])
+    num_trials = length(Errs[1])
     if length(Errs[1][1]) != length(methods)
         display("WARNING: Might have more/less methods than expected")
     end
     X_axis = Vector{String}([])
-    Y = Vector{Vector{}}
     Errs_matrix = stack(stack.(Errs)')
 
     for σᵢ in σ
@@ -14,4 +13,24 @@ function plot_sensitivity_boxplot(Errs::Vector{Vector{Vector{T}}}, methods::Abst
     end
     boxes = [box(y=reduce(vcat,Errs_matrix[:,i,:,:]), x=X_axis, name=method,  marker_size=2, fillcolor="white" ) for (i,method) in enumerate(methods)]
     return PlotlyJS.plot(boxes, Layout(legend=attr(x=0.8,y=1), plot_bgcolor="rgb(255,255,255)", yaxis_title="θ deviation (degrees)", xaxis_title="Noise(σ)",  ticklen=2, background=false,  boxmode="group"))
+end
+
+function plot_sensitivity_curves(Errs::Vector{Vector{Vector{T}}}, methods::Vector{String}; σ=collect(0:0.1:0.5)) where {T <: AbstractFloat}
+    fig = GLMakie.Figure()
+    ax = GLMakie.Axis(fig[1,1], title="Sensitivity Curve")
+    
+    num_trials = length(Errs[1])
+    if length(Errs[1][1]) != length(methods)
+        display("WARNING: Might have more/less methods than expected")
+    end
+    Errs_matrix = stack(stack.(Errs)')
+    lin=[]
+    for (i,method) in enumerate(methods)
+        median_i = median.(eachcol(Errs_matrix[:,i,1,:]) )
+        lin = [lin;GLMakie.lines!(ax, σ, median_i)]
+    end
+    GLMakie.Legend(fig[1,2], lin, methods)
+    ax.xlabel = "Noise(σ)"
+    ax.ylabel = "θ deviation (degrees)"
+    return fig,ax
 end

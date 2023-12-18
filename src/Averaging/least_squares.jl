@@ -1,7 +1,7 @@
 function minimize_euclidean(n::Int, X::AbstractVector)
     #X is stacked vector of some m=length(X)/n unit vectors of dimension n each
-    A = kron(ones(div(length(X), n)), SMatrix{n,n,eltype(X)}(I))
-    return A\X
+    h = kron(ones(div(length(X), n)), SMatrix{n,n,eltype(X)}(I)) \ X
+    return h/norm(h)
 end
 
 function ls_euclidean(M::AbstractMatrix)

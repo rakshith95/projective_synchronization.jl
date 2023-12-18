@@ -34,11 +34,11 @@ function weiszfeld(M::AbstractMatrix; max_iterations=1e3, initialize=nothing, δ
             D += 1/norm(M[:,i]-c_prev, 1)
         end
         c = N/D
-
+        c = c/norm(c)
         it+=1
         if norm(c-c_prev,1) < δ
             break
         end
     end
-    return c/norm(c)
+    return c
 end

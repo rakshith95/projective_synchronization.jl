@@ -1,6 +1,6 @@
 module projective_synchronization
 
-import StructArrays, Distributions, MAT, PlotlyJS
+import StructArrays, Distributions, MAT, PlotlyJS, StatsBase
 
 using LinearAlgebra, StaticArrays, Statistics, SparseArrays, Graphs, Arpack, ProgressBars
 
