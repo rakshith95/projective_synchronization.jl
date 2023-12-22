@@ -6,7 +6,7 @@ function iterative_projective_synchronization(Z::AbstractMatrix{Projectivity};Xâ
     max_it = get(kwargs, :max_iterations, 1000)
     max_updates = get(kwargs, :max_updates, 70)
     min_updates = get(kwargs, :min_updates, 20)
-    Î´ = get(kwargs, :Î´, 1e-12)
+    Î´ = get(kwargs, :Î´, 1e-10)
     
     if occursin("euclidean", lowercase(method))
         average = average_ls_euclidean
@@ -25,7 +25,7 @@ function iterative_projective_synchronization(Z::AbstractMatrix{Projectivity};Xâ
     end
 
     n = size(Z,1)
-    Adj = MMatrix{n,n, Bool}(zeros(n,n))
+    Adj = sparse(zeros(n,n))
     Adj[findall(!zero, Z)] .= 1
     
     G = Graph(Adj)
@@ -42,17 +42,12 @@ function iterative_projective_synchronization(Z::AbstractMatrix{Projectivity};Xâ
     C = closeness_centrality(G)
     _,anchor = findmax(C)
     updated[anchor] = 1
-    
+    steady[anchor] = true
     iter=0
     while iter < max_it
         iter += 1
-        i = rand(1:n)
-        if i == anchor
-            continue
-        end
-        if updated[i]  > max_updates || steady[i]
-            continue
-        end
+        wts =  (max_updates .- updated)./max_updates .* .!steady
+        i = StatsBase.wsample(unit_normalize!(wts))
         
         N = neighbors(G, i)
         if iszero(updated[N])
@@ -82,8 +77,7 @@ function average_ls_euclidean(i::Int, X::AbstractVector{Projectivity}, N::Abstra
     end
     M = M[:,2:end]
 
-    avg = reshape(ls_euclidean(M), n,n)
-    return SMatrix{n,n,Float64}(avg)
+    return SMatrix{n,n,Float64}(reshape(ls_euclidean(M), n,n))
 end
 
 
@@ -96,8 +90,7 @@ function average_ls_crossProduct(i::Int, X::AbstractVector{Projectivity}, N::Abs
     end
     M = M[:,2:end]
 
-    avg = reshape(ls_crossProduct(M), n,n)
-    return SMatrix{n,n,Float64}(avg)
+    return SMatrix{n,n,Float64}(reshape(ls_crossProduct(M), n,n))
 end
 
 function average_sphere(i::Int, X::AbstractVector{Projectivity}, N::AbstractVector{T}, Z::AbstractMatrix{Projectivity}) where T
@@ -117,8 +110,7 @@ function average_sphere(i::Int, X::AbstractVector{Projectivity}, N::AbstractVect
         end
     end
 
-    avg = reshape(spherical_mean(M),n,n)
-    return SMatrix{n,n,Float64}(avg)
+    return SMatrix{n,n,Float64}(reshape(spherical_mean(M),n,n))
 end
 
 function average_weiszfeld(i::Int, X::AbstractVector{Projectivity}, N::AbstractVector{T}, Z::AbstractMatrix{Projectivity}) where T
@@ -130,8 +122,7 @@ function average_weiszfeld(i::Int, X::AbstractVector{Projectivity}, N::AbstractV
     end
     M = M[:,2:end]
     
-    avg = reshape(weiszfeld(M),n,n)
-    return SMatrix{n,n,Float64}(avg)
+    return SMatrix{n,n,Float64}(reshape(weiszfeld(M),n,n))
 end
 
 function average_ls_orthogonal(i::Int, X::AbstractVector{Projectivity}, N::AbstractVector{T}, Z::AbstractMatrix{Projectivity}) where T

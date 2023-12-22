@@ -1,7 +1,7 @@
-function spherical_mean(M::AbstractArray;  initialize=nothing, max_iterations=1e3, δ=1e-10)
+function spherical_mean(M::AbstractArray;  initialize=nothing, max_iterations=1e3, δ=1e-6)
     # Columns of M are unit vectors which need to be averaged 
     # initialize
-    M = M ./ norm.(eachcol(M))'
+    M[:,:] = M ./ norm.(eachcol(M))'
     if isnothing(initialize)
         c₀ = mean.(eachrow(M))
     else
@@ -17,9 +17,12 @@ function spherical_mean(M::AbstractArray;  initialize=nothing, max_iterations=1e
             c_prev = c
             c = zeros(length(c_prev))
             for i in collect(1:size(M,2))
-                if (c_prev'*M[:,i])^2 < 1.0
-                    c = c + M[:,i]/sqrt( 1 - (c_prev'*M[:,i])^2 )
-                
+                if (c_prev'*M[:,i]) < 1.0
+                    if isapprox(abs(c_prev'*M[:,i]), 1.0)
+                        c = c + M[:,i]
+                    else 
+                        c = c + M[:,i]/ sqrt( 1 - (c_prev'*M[:,i])^2 )
+                    end
                 end
             end
             if isapprox(norm(c),0.0)

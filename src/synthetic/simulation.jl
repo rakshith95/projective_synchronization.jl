@@ -1,4 +1,4 @@
-function create_synthetic(σ;error=orthogonal_projection_distance,average=spherical_mean, averaging_methods=["sphere", "dyadic", "least-squares-orthogonal", "gaia", "crossproduct", "euclidean", "weiszfeld" ], kwargs...)
+function create_synthetic(σ;error=orthogonal_projection_distance,average=spherical_mean, averaging_methods, kwargs...)
     normalize_matrix = get(kwargs, :normalize_matrix, false)
     dims = get(kwargs, :dimension, 4)
     n = get(kwargs, :frames, 25)
@@ -17,17 +17,23 @@ function create_synthetic(σ;error=orthogonal_projection_distance,average=spheri
             if i==j
                 continue
             end
-            Z_ij = X_gt[i]*inv(X_gt[j]) + Projectivity(rand(Distributions.Normal(0, σ), dims, dims)) # Add noise
-            Z[i,j] =  Z_ij
-            Z[j,i] = inv(Z_ij) # Symmetric block is inverse
+            Z[i,j] = X_gt[i]*inv(X_gt[j]) + Projectivity(rand(Distributions.Normal(0, σ), dims, dims)) # Add noise
+            Z[j,i] = inv(Z[i,j]) # Symmetric block is inverse
         end
     end
     
     # Make holes
-    A = sprand(n, n, ρ)
-    A[A.!=0] .= 1.0
-    A = sparse(ones(n,n)) - A
-    A = triu(A,1) + triu(A,1)'
+    A = missing
+    while true 
+        A = sprand(n, n, ρ)
+        A[A.!=0] .= 1.0
+        A = sparse(ones(n,n)) - A
+        A = triu(A,1) + triu(A,1)'
+        G = Graph(A)
+        if Graphs.is_connected(G)
+            break
+        end
+    end
     Z = Z.*A
     
     # outliers
@@ -77,5 +83,7 @@ function create_synthetic(σ;error=orthogonal_projection_distance,average=spheri
 
 end
 
-# Err = create_synthetic(0.0, error=angular_distance, outliers=0.1,  frames=15);
+# avg_methods = ["sphere", "dyadic", "least-squares-orthogonal", "gaia", "euclidean", "weiszfeld" ]
+# Err = create_synthetic(0.1, averaging_methods=avg_methods, error=angular_distance, outliers=0.0,  frames=25);
 # rad2deg.(mean.(eachcol(Err)))
+# mean.(eachcol(Err))

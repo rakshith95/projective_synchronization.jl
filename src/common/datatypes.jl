@@ -67,6 +67,13 @@ function unit_normalize(P::Projectivity, metric)
     end
 end
 
+function unit_normalize(v::SVector{N,T}) where {N,T}
+    return v/norm(v)
+end
+
+function unit_normalize!(v::AbstractVector{T}) where T
+    v[:] = v/norm(v)
+end
 #Overload operators for the Projectivity struct
 
 function Base.zero(P::Projectivity{Q}) where Q
