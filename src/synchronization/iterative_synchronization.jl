@@ -16,6 +16,8 @@ function iterative_projective_synchronization(Z::AbstractMatrix{Projectivity};Xâ
         average = average_dyadic
     elseif occursin("sphere", lowercase(method)) || occursin("spherical", lowercase(method))
         average = average_sphere
+    elseif occursin("A1", uppercase(method)) || occursin("buss", lowercase(method))
+        average = average_sphere_A1
     elseif occursin("gaia", lowercase(method))
         average = average_lsg
     elseif occursin("weiszfeld", lowercase(method))
@@ -76,6 +78,11 @@ function average_ls_euclidean(i::Int, X::AbstractVector{Projectivity}, N::Abstra
         M = [M h]
     end
     M = M[:,2:end]
+    for j=2:size(M,2)
+        if dot(M[:,1],M[:,j]) < 0
+            M[:,j] = -M[:,j]
+        end
+    end
 
     return SMatrix{n,n,Float64}(reshape(ls_euclidean(M), n,n))
 end
@@ -103,15 +110,32 @@ function average_sphere(i::Int, X::AbstractVector{Projectivity}, N::AbstractVect
     M = M[:,2:end]
 
     #identity antipodal points
-    a = M[:,1]
     for j=2:size(M,2)
-        if dot(a,M[:,j]) < 0
+        if dot(M[:,1],M[:,j]) < 0
             M[:,j] = -M[:,j]
         end
     end
-
     return SMatrix{n,n,Float64}(reshape(spherical_mean(M),n,n))
 end
+
+function average_sphere_A1(i::Int, X::AbstractVector{Projectivity}, N::AbstractVector{T}, Z::AbstractMatrix{Projectivity}; algorithm="lagrangian") where T
+    n = size(X[1].P)[1]
+    M = zeros(n^2)
+    for j in N
+        h = vec((Z[i,j]*X[j]).P)
+        M = [M h]
+    end
+    M = M[:,2:end]
+
+    #identity antipodal points
+    for j=2:size(M,2)
+        if dot(M[:,1],M[:,j]) < 0
+            M[:,j] = -M[:,j]
+        end
+    end
+    return SMatrix{n,n,Float64}(reshape(weighted_spherical_mean_A1(M),n,n))    
+end
+
 
 function average_weiszfeld(i::Int, X::AbstractVector{Projectivity}, N::AbstractVector{T}, Z::AbstractMatrix{Projectivity}) where T
     n = size(X[1].P)[1]
@@ -121,7 +145,12 @@ function average_weiszfeld(i::Int, X::AbstractVector{Projectivity}, N::AbstractV
         M = [M h]
     end
     M = M[:,2:end]
-    
+    for j=2:size(M,2)
+        if dot(M[:,1],M[:,j]) < 0
+            M[:,j] = -M[:,j]
+        end
+    end
+
     return SMatrix{n,n,Float64}(reshape(weiszfeld(M),n,n))
 end
 

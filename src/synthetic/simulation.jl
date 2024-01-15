@@ -1,3 +1,23 @@
+function compute_Q(Q, X_sol, X_gt, average_method)
+    n = length(X_gt)
+    dims = size(X_gt[1].P,1)
+    for i=1:n
+        Q[:,i] = vec((inv(X_sol[i])*X_gt[i]).P)
+    end
+    return SMatrix{dims,dims,Float64}(reshape(average_method(Q),dims,dims))
+end
+    
+function compute_err(X_gt, X_sol, Q_avg, error_measure)
+    n = length(X_gt)
+    err = zeros(n)
+    for i=1:n
+        xgtᵢ = vec(@views X_gt[i].P)
+        xsolᵢ = vec(@views X_sol[i] * Q_avg)
+        err[i] = error_measure(xgtᵢ, xsolᵢ)
+    end
+    return err
+end
+
 function create_synthetic(σ;error=orthogonal_projection_distance,average=spherical_mean, averaging_methods, kwargs...)
     normalize_matrix = get(kwargs, :normalize_matrix, false)
     dims = get(kwargs, :dimension, 4)
@@ -48,42 +68,36 @@ function create_synthetic(σ;error=orthogonal_projection_distance,average=spheri
     if normalize_matrix
         Z = unit_normalize.(Z)
     end
-    X_sol_spectral = projectivity_synch_spectral(copy(Z))
+    #Global Methods:
     # X_solᵢ*Q = Xᵢ
     # Either take Q = Xᵢ for the anchor node i, OR
     # Take avg of Qᵢ = inv(X_solᵢ)*Xᵢ ∀ i ∈ 1..n
-
-    Q = MMatrix{dims*dims, n, Float64}(zeros(dims*dims, n))
-    for i=1:n
-        Q[:,i] = vec((inv(X_sol_spectral[i])*X_gt[i]).P)
-    end
-    Q_avg = SMatrix{dims,dims,Float64}(reshape(average(Q),dims,dims))
-    err = zeros(n)
-    for i=1:n
-        xgtᵢ = vec(@views X_gt[i].P)
-        xsolᵢ = vec(@views X_sol_spectral[i] * Q_avg)
-        err[i] = error(xgtᵢ, xsolᵢ)
-    end
     
+    Q = MMatrix{dims*dims, n, Float64}(zeros(dims*dims, n))
+    #1. Spanning Tree 
+    X_sol_spanningTree = spanning_tree_synchronization(Z)
+    Q_avg_spanningTree = compute_Q(Q, X_sol_spanningTree, X_gt, average)
+    err = compute_err(X_gt, X_sol_spanningTree, Q_avg_spanningTree, error)
+
+    #2. Spectral 
+    X_sol_spectral = projectivity_synch_spectral(copy(Z))
+    Q_avg_spectral = compute_Q(Q, X_sol_spectral, X_gt, average)
+    err = hcat(err, compute_err(X_gt, X_sol_spectral, Q_avg_spectral, error))
+    
+    # Iterative methods
     for method in averaging_methods
         X_sol_iterative = iterative_projective_synchronization(copy(Z);X₀=X_sol_spectral, averaging_method=method,kwargs...)
-        for i=1:n
-            Q[:,i] = vec((inv(X_sol_iterative[i])*X_gt[i]).P)
-        end
-        Q_avg = SMatrix{dims,dims,Float64}(reshape(average(Q),dims,dims))
-        err_method = zeros(n)
-        for i=1:n
-            xgtᵢ = vec(@views X_gt[i].P)
-            xsolᵢ = vec(@views X_sol_iterative[i] * Q_avg)
-            err_method[i] = error(xgtᵢ, xsolᵢ)
-        end
-        err = hcat(err, err_method)
+        Q_avg_method = compute_Q(Q, X_sol_iterative, X_gt, average)
+        err = hcat(err, compute_err(X_gt, X_sol_iterative, Q_avg_method, error))
     end
+
     return err
 
 end
 
-# avg_methods = ["sphere", "dyadic", "least-squares-orthogonal", "gaia", "euclidean", "weiszfeld" ]
-# Err = create_synthetic(0.1, averaging_methods=avg_methods, error=angular_distance, outliers=0.0,  frames=25);
+# avg_methods = ["sphere", "A1", "dyadic", "least-squares-orthogonal", "gaia", "euclidean", "weiszfeld" ]
+# Err = create_synthetic(0.0, averaging_methods=avg_methods, error=angular_distance, outliers=0.0,  frames=25);
 # rad2deg.(mean.(eachcol(Err)))
+
+# gplot(ST)
 # mean.(eachcol(Err))
