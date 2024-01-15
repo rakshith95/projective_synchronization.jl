@@ -55,14 +55,28 @@ function RotateUnitInDirection!(x::AbstractVector{T}, dir::AbstractVector{T}) wh
     end
 end
 
-function weighted_spherical_mean_A1(M::AbstractArray{T}; weights=nothing, initialize=nothing, max_iterations=1e3, δ=1e-8) where T
+function sphere_to_tangent(x::AbstractVector, v::AbstractVector)
+    dim = length(x)
+    # Take a point v to tangent hyperplane of x 
+    c = v'*x #cosθ = Dot prod
+    vPerp = v - c*x
+    s = norm(vPerp) #sinθ
+    if isapprox(s,0)
+        return zeros(dim)
+    else
+        θ = atan(s,c)
+        return (θ/s)*vPerp # Take to tangent space. (How does this relate to methodology described in paper?)
+    end
+end
+
+
+function weighted_spherical_mean_A1(M::AbstractArray{T}; weights=nothing, initialize=nothing, max_iterations=1e3, δ=1e-10) where T
     # Algorithm A1 in "Spherical Averages and Applications to Spherical Splines and Interpolation" by Samuel R Buss et al. 
     
     #Make columns unit vectors
     M[:,:] = M ./ norm.(eachcol(M))'
     
     num_pts = size(M,2)
-    dim = size(M,1)
     if isnothing(weights)
         weights = SVector{num_pts, T}(ones(num_pts)*(1/num_pts))
     end
@@ -81,15 +95,7 @@ function weighted_spherical_mean_A1(M::AbstractArray{T}; weights=nothing, initia
     while it <= max_iterations
         xPrev = copy(xVec)
         for i=1:num_pts
-            c = M[:,i]'*xVec #cosθ = Dot prod
-            vPerp = M[:,i] - c*xVec
-            s = norm(vPerp) #sinθ
-            if isapprox(s,0)
-                localPoints[:,i] = zeros(dim)
-            else
-                θ = atan(s,c)
-                localPoints[:,i] = (θ/s)*vPerp # Take to tangent space. (How does this relate to methodology described in paper?)
-            end
+            localPoints[:,i] = sphere_to_tangent(xVec, M[:,i])
         end
         xDisp = WeightedSum(localPoints, weights) #Avg points in tangent space
         RotateUnitInDirection!(xVec, xDisp) # Take back to sphere by rotating xVec in the direction of xDisp. (How does this relate to methodology described in paper?)

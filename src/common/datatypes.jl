@@ -51,6 +51,12 @@ function unit_normalize(P::Projectivity)
     end
 end
 
+function unit_normalize!(P::Projectivity)
+    if P.exists
+        return P.P[:,:] = P.P/norm(P.P)
+    end
+end
+
 function unit_normalize(P::Projectivity, metric)
     if P.exists
         if occursin("det", lowercase(metric))
@@ -64,6 +70,20 @@ function unit_normalize(P::Projectivity, metric)
         end
     else
         return Projectivity(false)
+    end
+end
+
+function unit_normalize!(P::Projectivity, metric)
+    if P.exists
+        if occursin("det", lowercase(metric))
+            d = det(P.P)
+            n = size(P.P,1)
+            if d>0
+                P.P[:,:] = P.P/(d^(1/n))
+            elseif d<0
+                P.P[:,:] = P.P/(Complex(d)^(1/n))
+            end
+        end
     end
 end
 

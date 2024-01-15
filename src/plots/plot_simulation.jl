@@ -25,7 +25,7 @@ function plot_sensitivity_curves(Errs::Vector{Vector{Vector{T}}}, methods::Vecto
     Errs_matrix = stack(stack.(Errs)')
     lin=[]
     for (i,method) in enumerate(methods)
-        median_i = median.(eachcol(Errs_matrix[:,i,1,:]) )
+        median_i = mean.(eachcol(Errs_matrix[:,i,1,:]) )
         lin = [lin;GLMakie.lines!(ax, parameter, median_i)]
     end
     GLMakie.Legend(fig[1,2], lin, methods)

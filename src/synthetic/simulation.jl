@@ -1,8 +1,51 @@
+function angular_noise!(x::AbstractVector{T}, θ::T) where T
+    dim = length(x)
+    B = missing
+    while true
+        B = rand(dim,dim)
+        if !iszero(det(B))
+            break
+        end
+    end
+
+    # Take the bases into tangent space
+    for i=1:dim
+        B[:,i] = sphere_to_tangent(x, B[:,i])
+    end
+
+    # Get a random vector as linear combination of bases
+    coords = rand(dim)
+    v = vec(sum(coords'.*B, dims=2))
+    unit_normalize!(v)
+    v = θ*v
+
+    # Take vector from tangent space to sphere
+    RotateUnitInDirection!(x, v)
+end
+
+function angular_noise(x::AbstractVector{T}, θ::T) where T
+    x_cpy = copy(x)
+    angular_noise!(x_cpy, θ)
+    return x_cpy
+end
+
+function angular_noise!(Z::Projectivity, θ::T) where T<:AbstractFloat
+    if !isapprox(norm(Z.P), 1.0)
+        unit_normalize!(Z)
+    end
+    angular_noise!( vec(Z.P) , θ) 
+end
+
 function compute_Q(Q, X_sol, X_gt, average_method)
     n = length(X_gt)
     dims = size(X_gt[1].P,1)
     for i=1:n
         Q[:,i] = vec((inv(X_sol[i])*X_gt[i]).P)
+    end
+    for j=2:size(Q,2)
+        if dot(Q[:,1],Q[:,j]) < 0
+            Q[:,j] = -Q[:,j]
+        end
     end
     return SMatrix{dims,dims,Float64}(reshape(average_method(Q),dims,dims))
 end
@@ -18,17 +61,17 @@ function compute_err(X_gt, X_sol, Q_avg, error_measure)
     return err
 end
 
-function create_synthetic(σ;error=orthogonal_projection_distance,average=spherical_mean, averaging_methods, kwargs...)
+function create_synthetic(σ;noise_type="elemental_gaussian", error=orthogonal_projection_distance,average=spherical_mean, averaging_methods, kwargs...)
     normalize_matrix = get(kwargs, :normalize_matrix, false)
     dims = get(kwargs, :dimension, 4)
     n = get(kwargs, :frames, 25)
     ρ = get(kwargs, :holes_density, 0.5) 
     Ρ = get(kwargs, :outliers, 0.0)
-
+    
     X_gt = SizedVector{n, Projectivity}(repeat([Projectivity(false)],n)) # Ground truth nodes with dimxdim matrices
     for i=1:n
         Xᵢ = rand(dims,dims)
-        X_gt[i] = Projectivity(SMatrix{dims,dims,Float64}(Xᵢ/norm(Xᵢ)))
+        X_gt[i] = Projectivity(MMatrix{dims,dims,Float64}(Xᵢ/norm(Xᵢ)))
     end
 
     Z = SizedMatrix{n,n,Projectivity}(repeat([Projectivity(false)],n,n)) # Relative projectivities
@@ -37,7 +80,13 @@ function create_synthetic(σ;error=orthogonal_projection_distance,average=spheri
             if i==j
                 continue
             end
-            Z[i,j] = X_gt[i]*inv(X_gt[j]) + Projectivity(rand(Distributions.Normal(0, σ), dims, dims)) # Add noise
+            if occursin("elemental", noise_type)
+                Z[i,j] = X_gt[i]*inv(X_gt[j]) + Projectivity(rand(Distributions.Normal(0, σ), dims, dims)) # Add noise
+            elseif occursin("angular", noise_type)
+                Z[i,j] = unit_normalize(X_gt[i]*inv(X_gt[j]))
+                θ = abs(rand(Distributions.Normal(0, σ)))
+                angular_noise!(Z[i,j], θ)
+            end
             Z[j,i] = inv(Z[i,j]) # Symmetric block is inverse
         end
     end
@@ -92,12 +141,13 @@ function create_synthetic(σ;error=orthogonal_projection_distance,average=spheri
     end
 
     return err
-
+    
 end
 
-# avg_methods = ["sphere", "A1", "dyadic", "least-squares-orthogonal", "gaia", "euclidean", "weiszfeld" ]
-# Err = create_synthetic(0.0, averaging_methods=avg_methods, error=angular_distance, outliers=0.0,  frames=25);
+# avg_methods = ["sphere", "A1", "dyadic", "euclidean", "weiszfeld" ]
+# Err = create_synthetic(0.1, noise_type="angular", average=spherical_mean , averaging_methods=avg_methods, error=angular_distance, outliers=0.0,  frames=25);
 # rad2deg.(mean.(eachcol(Err)))
 
 # gplot(ST)
 # mean.(eachcol(Err))
+
