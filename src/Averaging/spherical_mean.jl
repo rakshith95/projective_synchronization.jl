@@ -1,13 +1,14 @@
-function spherical_mean(M::AbstractArray;  initialize=nothing, max_iterations=1e3, δ=1e-6)
+function spherical_mean(M::AbstractArray;  initialize=nothing, c₀=nothing, max_iterations=1e3, δ=1e-6)
     # Columns of M are unit vectors which need to be averaged 
     # initialize
     M[:,:] = M ./ norm.(eachcol(M))'
-    if isnothing(initialize)
-        c₀ = mean.(eachrow(M))
-    else
-        c₀ = initialize(M)
+    if isnothing(c₀)
+        if isnothing(initialize)
+            c₀ = mean.(eachrow(M))
+        else
+            c₀ = initialize(M)
+        end
     end
-
     c = c₀
     # if the mean is already a point in the sphere  do nothing
     # this happens with a single point or coincident points 
@@ -36,7 +37,15 @@ function spherical_mean(M::AbstractArray;  initialize=nothing, max_iterations=1e
             end
         end
     end
-
+    #=
+    ϕ = 0
+    ϕ′= 0
+    for i=1:size(M,2)
+        ϕ += abs(acos(dot(c, M[:,i])))
+        ϕ′+= abs2(acos(dot(c, M[:,i])))
+    end
+    println("Sphere","\t", ϕ,"\t", ϕ′ )
+    =#
     return c
 end
 
@@ -70,7 +79,7 @@ function sphere_to_tangent(x::AbstractVector, v::AbstractVector)
 end
 
 
-function weighted_spherical_mean_A1(M::AbstractArray{T}; weights=nothing, initialize=nothing, max_iterations=1e3, δ=1e-10) where T
+function weighted_spherical_mean_A1(M::AbstractArray{T}; p=1, weights=nothing, initialize=nothing, max_iterations=1e3, δ=1e-10) where T
     # Algorithm A1 in "Spherical Averages and Applications to Spherical Splines and Interpolation" by Samuel R Buss et al. 
     
     #Make columns unit vectors
@@ -83,7 +92,12 @@ function weighted_spherical_mean_A1(M::AbstractArray{T}; weights=nothing, initia
 
     #Initialize average
     if isnothing(initialize)
-        xVec = WeightedSum(M, weights)
+        # Try with Weiszfeld
+        if p==1
+            xVec = weiszfeld(M)
+        elseif p==2
+            xVec = WeightedSum(M, weights)
+        end
     else
         xVec = initialize(M, weights)
     end
@@ -97,7 +111,11 @@ function weighted_spherical_mean_A1(M::AbstractArray{T}; weights=nothing, initia
         for i=1:num_pts
             localPoints[:,i] = sphere_to_tangent(xVec, M[:,i])
         end
-        xDisp = WeightedSum(localPoints, weights) #Avg points in tangent space
+        if p==1
+            xDisp = weiszfeld(localPoints, normalize=false)
+        elseif p==2
+            xDisp = WeightedSum(localPoints, weights) #Avg points in tangent space
+        end
         RotateUnitInDirection!(xVec, xDisp) # Take back to sphere by rotating xVec in the direction of xDisp. (How does this relate to methodology described in paper?)
         unit_normalize!(xVec) #Project to sphere if there are any errs.
         if norm(xVec - xPrev) <= δ
@@ -105,5 +123,14 @@ function weighted_spherical_mean_A1(M::AbstractArray{T}; weights=nothing, initia
         end
         it += 1
     end
+    #=
+    ϕ = 0
+    ϕ′= 0
+    for i=1:num_pts
+        ϕ += abs(acos(dot(xVec, M[:,i])))
+        ϕ′ += abs2(acos(dot(xVec, M[:,i])))
+    end
+    println("A1","\t", ϕ,"\t", ϕ′,"\n\n" )
+    =#
     return xVec
 end            

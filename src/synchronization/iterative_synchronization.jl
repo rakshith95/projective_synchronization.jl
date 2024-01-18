@@ -46,27 +46,35 @@ function iterative_projective_synchronization(Z::AbstractMatrix{Projectivity};X�
     updated[anchor] = 1
     steady[anchor] = true
     iter=0
-    while iter < max_it
-        iter += 1
-        wts =  (max_updates .- updated)./max_updates .* .!steady
-        i = StatsBase.wsample(unit_normalize!(wts))
-        
-        N = neighbors(G, i)
-        if iszero(updated[N])
-            continue
-        end
 
-        oldX = X[i]
-        X[i] = Projectivity(average(i, X, N[updated[N].!=0], Z))
-        updated[i] += 1
-        steady[i] = updated[i] > min_updates && norm((oldX - X[i]).P)/norm(oldX.P) < δ
-        
-        if all(steady) || iter > max_it || all(updated .> max_updates)
-            break
-        end
+    nodes = collect(1:n)
+    exit_loop = false
+    while !exit_loop
+        Random.shuffle!(nodes)
+        for i in nodes
+            iter += 1
+            # wts =  (max_updates .- updated)./max_updates .* .!steady
+            # Change to random permutation at each step. i.e. update each node once before updating any node again.
+            # i = StatsBase.wsample(unit_normalize!(wts))
+            if i==anchor || steady[i] 
+                continue
+            end
+            N = neighbors(G, i)
+            if iszero(updated[N])
+                continue
+            end
 
+            oldX = X[i]
+            X[i] = Projectivity(average(i, X, N[updated[N].!=0], Z))
+            updated[i] += 1
+            steady[i] = updated[i] > min_updates && norm((oldX - X[i]).P)/norm(oldX.P) < δ
+
+            if all(steady)  || all(updated .> max_updates)
+                exit_loop=true
+                break
+            end
+        end
     end
-    
     return X
 end   
 
@@ -188,4 +196,15 @@ function average_dyadic(i::Int, X::AbstractVector{Projectivity}, N::AbstractVect
     end
     ev_max = eigvecs(M)[:,end]
     return SMatrix{n,n,Float64}(reshape(ev_max,n,n))
+end
+
+function average_dyadic(M::AbstractArray)
+    n = size(M,1)
+    D = zeros(n, n)
+    for i in size(M,2)
+        h = vec(M[:,i])
+        D = D + (h*h')/(h'*h)
+    end
+    ev_max = eigvecs(D)[:,end]
+    return SVector{n, Float64}(ev_max)
 end

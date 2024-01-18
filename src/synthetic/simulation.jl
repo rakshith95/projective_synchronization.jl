@@ -145,9 +145,6 @@ function create_synthetic(σ;noise_type="elemental_gaussian", error=orthogonal_p
 end
 
 # avg_methods = ["sphere", "A1", "dyadic", "euclidean", "weiszfeld" ]
-# Err = create_synthetic(0.1, noise_type="angular", average=spherical_mean , averaging_methods=avg_methods, error=angular_distance, outliers=0.0,  frames=25);
-# rad2deg.(mean.(eachcol(Err)))
-
-# gplot(ST)
-# mean.(eachcol(Err))
-
+# avg_methods = ["dyadic", "euclidean"]
+# Err = create_synthetic(0.1, average=spherical_mean , averaging_methods=avg_methods, error=angular_distance, outliers=0.0,  frames=25);
+# rad2deg.(median.(eachcol(Err)))

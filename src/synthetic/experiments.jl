@@ -24,7 +24,7 @@ function synchronization_sensitivity(;methods=["spanning-tree", "spectral", "sph
             for j=tqdm(1:num_trials)
                 Eⱼ = create_synthetic(σ_fixed, noise_type=noise_type, averaging_methods=methods, error=error, holes_density=ρ)    
                 if error==angular_distance
-                    e = rad2deg.(median.(eachcol(Eⱼ)))
+                    e = rad2deg.(mean.(eachcol(Eⱼ)))
                 else
                     e = mean.(eachcol(Eⱼ))
                 end 
@@ -41,7 +41,7 @@ function synchronization_sensitivity(;methods=["spanning-tree", "spectral", "sph
             for j=tqdm(1:num_trials)
                 Eⱼ = create_synthetic(σ_fixed, noise_type=noise_type, averaging_methods=methods, error=error, frames=n)    
                 if error==angular_distance
-                    e = rad2deg.(median.(eachcol(Eⱼ)))
+                    e = rad2deg.(mean.(eachcol(Eⱼ)))
                 else
                     e = mean.(eachcol(Eⱼ))
                 end
@@ -58,7 +58,7 @@ function synchronization_sensitivity(;methods=["spanning-tree", "spectral", "sph
             for j=1:num_trials
                 Eⱼ = create_synthetic(σ_fixed, noise_type=noise_type, averaging_methods=methods, error=error, outliers=Ρ)    
                 if error==angular_distance
-                    e = rad2deg.(median.(eachcol(Eⱼ)))
+                    e = rad2deg.(mean.(eachcol(Eⱼ)))
                 else
                     e = mean.(eachcol(Eⱼ))
                 end
@@ -75,19 +75,18 @@ end
 # avg_methods = ["sphere", "A1"]#, "dyadic", "least-squares-orthogonal", "gaia", "euclidean", "weiszfeld" ]
 # avg_methods = ["sphere", "A1", "dyadic", "euclidean", "weiszfeld" ]
 # all_methods = ["spanning-tree"; "spectral"; avg_methods]
-# E_noise = synchronization_sensitivity(methods=avg_methods, noise_type="angular", parameter_min=0.0, parameter_range=0.05, parameter_max=0.2, num_trials=100, error=angular_distance);
+# E_noise = synchronization_sensitivity(methods=avg_methods, noise_type="angular", parameter_min=0.0, parameter_range=0.075, parameter_max=0.25, num_trials=100, error=angular_distance);
 # E_outliers_pointOne = synchronization_sensitivity(methods=avg_methods, vary_parameter="outliers", σ_fixed=0.1 ,parameter_min=0.0, parameter_range=0.1, parameter_max=0.4, num_trials=100, error=angular_distance);
 # E_frames_pointOne = synchronization_sensitivity(methods=avg_methods, vary_parameter="frames", σ_fixed=0.1 ,parameter_min=10, parameter_range=15, parameter_max=50, num_trials=100, error=angular_distance);
 # p = plot_sensitivity_boxplot(E_noise, ["spectral", "sphere", "dyadic", "least-squares-orthogonal", "gaia", "euclidean", "weiszfeld" ], σ=collect(0:0.05:0.2))
 
 # import GLMakie
-# f,a = plot_sensitivity_curves(E_noise, varying_parameter="Noise (σ)", all_methods, parameter=collect(0:0.05:0.2))
-# GLMakie.save("outliers_pointOne.png", f)
+# all_methods[4] = "A1-L1"
+# f,a = plot_sensitivity_curves(E_noise, varying_parameter="Noise (σ)", all_methods, parameter=collect(0:0.075:0.25))
+# GLMakie.save("angularNoise_mean_withA1L1.png", f)
 
 # M = stack(E[1])'
 # median.(eachcol(M))
-
-
 
 #=
 using JLD2

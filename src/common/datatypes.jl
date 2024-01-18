@@ -91,6 +91,10 @@ function unit_normalize(v::SVector{N,T}) where {N,T}
     return v/norm(v)
 end
 
+function unit_normalize(v::AbstractVector{T}) where T
+    return v/norm(v)
+end
+
 function unit_normalize!(v::AbstractVector{T}) where T
     v[:] = v/norm(v)
 end
