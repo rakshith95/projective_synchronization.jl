@@ -201,9 +201,21 @@ end
 function average_dyadic(M::AbstractArray)
     n = size(M,1)
     D = zeros(n, n)
-    for i in size(M,2)
-        h = vec(M[:,i])
-        D = D + (h*h')/(h'*h)
+    for i in 1:size(M,2)
+        D = D + (M[:,i]*M[:,i]')/(M[:,i]'*M[:,i])
+    end
+    ev_max = eigvecs(D)[:,end]
+    return SVector{n, Float64}(ev_max)
+end
+
+function average_dyadic(M::AbstractArray, weights::AbstractVector{T}) where T<:AbstractFloat
+    if !isapprox(sum(weights),1.0)
+        weights[:] = weights/sum(weights)
+    end
+    n = size(M,1)
+    D = zeros(n, n)
+    for i in 1:size(M,2)
+        D = D + weights[i]*(M[:,i]*M[:,i]')/(M[:,i]'*M[:,i])
     end
     ev_max = eigvecs(D)[:,end]
     return SVector{n, Float64}(ev_max)

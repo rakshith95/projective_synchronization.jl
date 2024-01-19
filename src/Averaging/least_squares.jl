@@ -14,6 +14,12 @@ function ls_euclidean(M::AbstractMatrix)
     return minimize_euclidean(n, X)
 end 
 
+function ls_euclidean(M::AbstractMatrix, weights::AbstractVector{T}) where T<:AbstractFloat
+    if !isapprox(sum(weights), 1)
+        weights[:] = weights/sum(weights)
+    end
+    return WeightedSum(M, weights)
+end
 function make_crossProduct_matrix(a::AbstractVector)
     # From "Uncalibrated Dynamic Stereo Using Parallax" by Francesco Malapelle et al. : https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=6703743
     n = length(a)

@@ -58,7 +58,7 @@ function averaging_sensitivity(avg_methods;num_trials=100, param_min=0.0, param_
 end
 
 # avg_methods = ["sphere", "A1_L1", "A1_L2", "weiszfeld", "dyadic", "euclidean" ]
-# Errs = averaging_sensitivity(avg_methods, param_step=0.05, param_max=0.25, num_trials=1000);
+# Errs = averaging_sensitivity(avg_methods, param_step=0.025, param_max=0.5, num_trials=1000);
 # import GLMakie
-# f,a = plot_sensitivity_curves(Errs, varying_parameter="Noise (σ) degrees", avg_methods, parameter= rad2deg.(collect(0:0.05:0.25)))
+# f,a = plot_sensitivity_curves(Errs, varying_parameter="Noise (σ) degrees", avg_methods, parameter= rad2deg.(collect(0:0.025:0.5)))
 # GLMakie.save("singularAveraging.png", f)

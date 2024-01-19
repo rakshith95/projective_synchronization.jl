@@ -61,7 +61,7 @@ function compute_err(X_gt, X_sol, Q_avg, error_measure)
     return err
 end
 
-function create_synthetic(σ;noise_type="elemental_gaussian", error=orthogonal_projection_distance,average=spherical_mean, averaging_methods, kwargs...)
+function create_synthetic(σ;noise_type="elemental_gaussian", error=orthogonal_projection_distance,average=spherical_mean, averaging_methods=["sphere"], kwargs...)
     normalize_matrix = get(kwargs, :normalize_matrix, false)
     dims = get(kwargs, :dimension, 4)
     n = get(kwargs, :frames, 25)
@@ -124,7 +124,7 @@ function create_synthetic(σ;noise_type="elemental_gaussian", error=orthogonal_p
     
     Q = MMatrix{dims*dims, n, Float64}(zeros(dims*dims, n))
     #1. Spanning Tree 
-    X_sol_spanningTree = spanning_tree_synchronization(Z)
+    X_sol_spanningTree = spanning_tree_synchronization(copy(Z))
     Q_avg_spanningTree = compute_Q(Q, X_sol_spanningTree, X_gt, average)
     err = compute_err(X_gt, X_sol_spanningTree, Q_avg_spanningTree, error)
 
@@ -145,6 +145,6 @@ function create_synthetic(σ;noise_type="elemental_gaussian", error=orthogonal_p
 end
 
 # avg_methods = ["sphere", "A1", "dyadic", "euclidean", "weiszfeld" ]
-# avg_methods = ["dyadic", "euclidean"]
+# avg_methods = ["dyadic"]
 # Err = create_synthetic(0.1, average=spherical_mean , averaging_methods=avg_methods, error=angular_distance, outliers=0.0,  frames=25);
 # rad2deg.(median.(eachcol(Err)))
