@@ -1,7 +1,7 @@
 function spherical_mean(M::AbstractArray;  initialize=nothing, c₀=nothing, max_iterations=1e3, δ=1e-6, σ=1e-4)
     # Columns of M are unit vectors which need to be averaged 
     # initialize
-    M[:,:] = M ./ norm.(eachcol(M))'
+    M = M ./ norm.(eachcol(M))'
     if isnothing(c₀)
         if isnothing(initialize)
             c₀ = mean.(eachrow(M))
@@ -17,20 +17,20 @@ function spherical_mean(M::AbstractArray;  initialize=nothing, c₀=nothing, max
         while it < max_iterations
             c_prev = c
             # If current iterate is equal to any of the points, then disturb it by some amount
-            if any(isapprox.(norm.(eachcol((M .- vec(c_prev)))),0))
+            if any(norm.(eachcol((M .- vec(c_prev)))) .< 1e-6)
                 Δ=rand(Distributions.Normal(0, σ),  size(M)[1])
-                c_prev = c_prev + Δ
+                c_prev = unit_normalize(c_prev + Δ)
             end    
 
-            c = zeros(length(c_prev))
+            c = SVector{length(c_prev)}(zero(c_prev))
             for i in collect(1:size(M,2))
-                c = c + M[:,i]/ sqrt( 1 - (c_prev'*M[:,i])^2 )
+                c = c + view(M,:,i)/ sqrt( 1 - (c_prev'*view(M,:,i))^2 )
             end
             if isapprox(norm(c),0.0)
                 c = c_prev
                 break 
             end
-            c = c/norm(c)
+            c = unit_normalize(c)
             it += 1
             if norm(c-c_prev) < δ 
                 break
@@ -40,14 +40,14 @@ function spherical_mean(M::AbstractArray;  initialize=nothing, c₀=nothing, max
     return c
 end
 
-function spherical_mean(M::AbstractArray, weights::AbstractVector{T};  initialize=nothing, c₀=nothing, max_iterations=1e3, δ=1e-6, σ=1e-4 ) where T<:AbstractFloat
+function spherical_mean(M::AbstractArray, weights::AbstractVector{T};  initialize=nothing, c₀=nothing, max_iterations=1e3, δ=1e-5, σ=1e-4) where T<:AbstractFloat
     # Columns of M are unit vectors which need to be averaged 
     # initialize
-    M[:,:] = M ./ norm.(eachcol(M))'
+    M = M ./ norm.(eachcol(M))'
     if isnothing(c₀)
         if isnothing(initialize)
             if !isapprox(sum(weights),1.0)
-                weights[:] = weights/sum(weights)
+                weights = weights/sum(weights)
             end
             c₀ = WeightedSum(M, weights)
         else
@@ -57,25 +57,25 @@ function spherical_mean(M::AbstractArray, weights::AbstractVector{T};  initializ
     c = c₀
     # if the mean is already a point in the sphere  do nothing
     # this happens with a single point or coincident points 
+    it=0
     if !isapprox(norm(c₀),1.0)
-        it=0
         while it < max_iterations
             c_prev = c            
             # If current iterate is equal to any of the points, then disturb it by some amount
-            if any(isapprox.(norm.(eachcol((M .- vec(c_prev)))),0))
+            if any(norm.(eachcol((M .- vec(c_prev)))) .< 1e-6)
+            # if any(isapprox.(norm.(eachcol((M .- vec(c_prev)))),0))
                 Δ=rand(Distributions.Normal(0, σ),  size(M)[1])
-                c_prev = c_prev + Δ
+                c_prev = unit_normalize(c_prev + Δ)
             end    
-            
-            c = zeros(length(c_prev))
+            c = SVector{length(c_prev)}(zero(c_prev))
             for i in collect(1:size(M,2))
-                c = c + (weights[i]*M[:,i])/ sqrt( 1 - (c_prev'*M[:,i])^2 )
+                c = c + (weights[i]*view(M,:,i))/ sqrt( 1 - (c_prev'*view(M,:,i))^2 )
             end
             if isapprox(norm(c),0.0)
                 c = c_prev
                 break 
             end
-            c = c/norm(c)
+            c = unit_normalize(c)
             it += 1
             if norm(c-c_prev) < δ 
                 break
@@ -86,7 +86,7 @@ function spherical_mean(M::AbstractArray, weights::AbstractVector{T};  initializ
 end
 
 function WeightedSum(M::AbstractArray{T}, weights::AbstractVector{T}) where T<:AbstractFloat
-    return sum(weights.*eachcol(M))
+    return SVector{size(M,1),T}(sum(weights.*eachcol(M)))
 end
 
 function RotateUnitInDirection!(x::AbstractVector{T}, dir::AbstractVector{T}) where T<:AbstractFloat
@@ -115,15 +115,15 @@ function sphere_to_tangent(x::AbstractVector, v::AbstractVector)
 end
 
 
-function weighted_spherical_mean_A1(M::AbstractArray{T}; p=1, weights=nothing, initialize=nothing, max_iterations=1e3, δ=1e-8) where T
+function weighted_spherical_mean_A1(M::AbstractArray{T}, weights::SVector{N,Float64}; p=1, initialize=nothing, max_iterations=1e3, δ=1e-8) where {N,T}
     # Algorithm A1 in "Spherical Averages and Applications to Spherical Splines and Interpolation" by Samuel R Buss et al. 
     
     #Make columns unit vectors
-    M[:,:] = M ./ norm.(eachcol(M))'
+    M = M ./ norm.(eachcol(M))'
     
     num_pts = size(M,2)
-    if isnothing(weights)
-        weights = SVector{num_pts, T}(ones(num_pts)*(1/num_pts))
+    if !isapprox(sum(weights),1.0)
+        weights = weights/sum(weights)
     end
 
     #Initialize average
@@ -145,7 +145,7 @@ function weighted_spherical_mean_A1(M::AbstractArray{T}; p=1, weights=nothing, i
     while it <= max_iterations
         xPrev = copy(xVec)
         for i=1:num_pts
-            localPoints[:,i] = sphere_to_tangent(xVec, M[:,i])
+            localPoints[:,i] = sphere_to_tangent(xVec, view(M,:,i))
         end
         if p==1
             xDisp = weiszfeld(localPoints, weights, normalize=false)
@@ -153,7 +153,7 @@ function weighted_spherical_mean_A1(M::AbstractArray{T}; p=1, weights=nothing, i
             xDisp = WeightedSum(localPoints, weights) #Avg points in tangent space
         end
         RotateUnitInDirection!(xVec, xDisp) # Take back to sphere by rotating xVec in the direction of xDisp. (How does this relate to methodology described in paper?)
-        unit_normalize!(xVec) #Project to sphere if there are any errs.
+        # unit_normalize!(xVec) #Project to sphere if there are any errs.
         if norm(xVec - xPrev) <= δ
             break
         end
@@ -161,3 +161,9 @@ function weighted_spherical_mean_A1(M::AbstractArray{T}; p=1, weights=nothing, i
     end
     return xVec
 end            
+
+weighted_spherical_mean_A1(M::AbstractArray{T}) where T = weighted_spherical_mean_A1(M, SVector{size(M,2), Float64}(ones(size(M,2))) )
+weighted_spherical_mean_A1_L1(M::AbstractArray{T}, weights::SVector{N,Float64}; initialize=nothing, max_iterations=1e3, δ=1e-8) where {N,T} = weighted_spherical_mean_A1(M,weights, p=1, initialize=initialize, max_iterations=max_iterations, δ=δ)
+weighted_spherical_mean_A1_L1(M::AbstractArray{T}; initialize=nothing, max_iterations=1e3, δ=1e-8) where T = weighted_spherical_mean_A1(M, SVector{size(M,2), Float64}(ones(size(M,2))) , p=1, initialize=initialize, max_iterations=max_iterations, δ=δ)
+weighted_spherical_mean_A1_L2(M::AbstractArray{T}, weights::SVector{N,Float64}; initialize=nothing, max_iterations=1e3, δ=1e-8) where {N,T} = weighted_spherical_mean_A1(M,weights, p=2, initialize=initialize, max_iterations=max_iterations, δ=δ)
+weighted_spherical_mean_A1_L2(M::AbstractArray{T}; initialize=nothing, max_iterations=1e3, δ=1e-8) where T = weighted_spherical_mean_A1(M, SVector{size(M,2), Float64}(ones(size(M,2))) , p=2, initialize=initialize, max_iterations=max_iterations, δ=δ)

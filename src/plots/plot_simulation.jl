@@ -15,7 +15,7 @@ function plot_sensitivity_boxplot(Errs::Vector{Vector{Vector{T}}}, methods::Abst
     return PlotlyJS.plot(boxes, Layout(legend=attr(x=0.8,y=1), plot_bgcolor="rgb(255,255,255)", yaxis_title="θ deviation (degrees)", xaxis_title="Noise(σ)",  ticklen=2, background=false,  boxmode="group"))
 end
 
-function plot_sensitivity_curves(Errs::Vector{Vector{Vector{T}}}, methods::Vector{String}; varying_parameter="Noise (σ)", parameter=collect(0:0.1:0.5)) where {T <: AbstractFloat}
+function plot_sensitivity_curves(Errs::Vector{Vector{Vector{T}}}, methods::Vector{String}; colors=nothing, varying_parameter="Noise (σ)", parameter=collect(0:0.1:0.5)) where {T <: AbstractFloat}
     fig = GLMakie.Figure()
     ax = GLMakie.Axis(fig[1,1], title="Sensitivity Curve")
     
@@ -26,7 +26,11 @@ function plot_sensitivity_curves(Errs::Vector{Vector{Vector{T}}}, methods::Vecto
     lin=[]
     for (i,method) in enumerate(methods)
         median_i = mean.(eachcol(Errs_matrix[:,i,1,:]) )
-        lin = [lin;GLMakie.lines!(ax, parameter, median_i)]
+        if isnothing(colors)
+            lin = [lin;GLMakie.lines!(ax, parameter, median_i, markersize=rand()*10)]
+        else
+            lin = [lin;GLMakie.lines!(ax, parameter, median_i, color=colors[i])]
+        end
     end
     GLMakie.Legend(fig[1,2], lin, methods)
     ax.xlabel = varying_parameter

@@ -3,7 +3,7 @@ function weiszfeld(M::AbstractMatrix; normalize=true, max_iterations=1e3, initia
     #Initialize
     #Make cols of M unit vectors
     if normalize
-        M[:,:] = M ./ norm.(eachcol(M))'
+        M = M ./ norm.(eachcol(M))'
     end
 
     if isnothing(c₀)
@@ -32,11 +32,11 @@ function weiszfeld(M::AbstractMatrix; normalize=true, max_iterations=1e3, initia
         # end  
         # c = c_prev + ∇/λ
 
-        N = zeros(eltype(c_prev), length(c_prev))
+        N = SVector{length(c_prev), eltype(c_prev)}(zero(c_prev) )
         D = 0
         for i in collect(1:size(M,2))
-            N += M[:,i] / norm(M[:,i]-c_prev, 1)
-            D += 1/norm(M[:,i]-c_prev, 1)
+            N += @views M[:,i] / norm(M[:,i]-c_prev, 1)
+            D += 1/norm( view(M,:,i)-c_prev, 1)
         end
         c = N/D
         it+=1
@@ -53,18 +53,18 @@ function weiszfeld(M::AbstractMatrix; normalize=true, max_iterations=1e3, initia
 end
 
 
-function weiszfeld(M::AbstractMatrix, weights::AbstractVector{T}; normalize=true, max_iterations=1e3, initialize=nothing, c₀=nothing, δ=1e-6, σ=1e-3 ) where T<:AbstractFloat
+function weiszfeld(M::AbstractMatrix, weights::AbstractVector{T}; normalize=true, max_iterations=1e2, initialize=nothing, c₀=nothing, δ=1e-3, σ=1e-3 ) where T<:AbstractFloat
     # As described in L1 rotation averaging using the Weiszfeld algorithm: Hartley et al.
     #Initialize
     #Make cols of M unit vectors
     if normalize
-        M[:,:] = M ./ norm.(eachcol(M))'
+        M = M ./ norm.(eachcol(M))'
     end
     
     if isnothing(c₀)
         if isnothing(initialize)
-            if !isapprox(sum(weights),1)
-                weights[:] = weights/sum(weights)
+            if !isapprox(sum(weights),1.0)
+                weights = weights/sum(weights)
             end
             c₀ = WeightedSum(M, weights)
             # c₀ = mean.(eachrow(M))
@@ -83,11 +83,11 @@ function weiszfeld(M::AbstractMatrix, weights::AbstractVector{T}; normalize=true
             c_prev = c_prev + Δ
         end
 
-        ∇ = zeros(eltype(c_prev), length(c_prev))
+        ∇ = SVector{length(c_prev), eltype(c_prev)}(zero(c_prev))
         λ = 0
         for i in collect(1:size(M,2))
-            ∇ +=  weights[i]*((M[:,i] - c_prev)/norm(M[:,i]-c_prev,1))
-            λ += weights[i]*(norm(M[:,i] - c_prev,1))^(-1)
+            ∇ += weights[i]*((view(M,:,i) - c_prev)/norm(view(M,:,i)-c_prev,1))
+            λ += weights[i]*(norm(view(M,:,i) - c_prev,1))^(-1)
         end  
         c = c_prev + ∇/λ
         it+=1

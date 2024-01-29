@@ -16,7 +16,7 @@ end
 
 function ls_euclidean(M::AbstractMatrix, weights::AbstractVector{T}) where T<:AbstractFloat
     if !isapprox(sum(weights), 1)
-        weights[:] = weights/sum(weights)
+        weights = weights/sum(weights)
     end
     return WeightedSum(M, weights)
 end
@@ -49,7 +49,7 @@ function ls_crossProduct(M::AbstractMatrix)
     #= Last column of V in SVD, i.e. the eigenvector corresponding to the minimum singular value minimizes ||hₓc||₂ for ||c||=1
     https://math.berkeley.edu/~hutching/teach/54-2017/svd-notes.pdf shows proof for opposite case, i.e. max ||Ax|| for ||x||=1  =#
 
-    return V[:,end]
+    return @view V[:,end]
 end
 
 
@@ -64,5 +64,5 @@ function ls_crossScale(M::AbstractMatrix)
     #= Last column of V in SVD, i.e. the eigenvector corresponding to the minimum singular value minimizes ||hₓc||₂ for ||c||=1
     https://math.berkeley.edu/~hutching/teach/54-2017/svd-notes.pdf shows proof for opposite case, i.e. max ||Ax|| for ||x||=1  =#
 
-    return V[:,end]
+    return @view V[:,end]
 end

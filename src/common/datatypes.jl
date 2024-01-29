@@ -173,3 +173,10 @@ function inv(P::Projectivity)
     end
 end
 
+function norm(P::Projectivity)
+    if P.exists
+        return norm(P.P)
+    else
+        return 0.0
+    end
+end

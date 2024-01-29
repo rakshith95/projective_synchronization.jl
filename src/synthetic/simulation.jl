@@ -10,7 +10,7 @@ function angular_noise!(x::AbstractVector{T}, θ::T) where T
 
     # Take the bases into tangent space
     for i=1:dim
-        B[:,i] = sphere_to_tangent(x, B[:,i])
+        B[:,i] = sphere_to_tangent(x, view(B,:,i))
     end
 
     # Get a random vector as linear combination of bases
@@ -43,7 +43,7 @@ function compute_Q(Q, X_sol, X_gt, average_method)
         Q[:,i] = vec((inv(X_sol[i])*X_gt[i]).P)
     end
     for j=2:size(Q,2)
-        if dot(Q[:,1],Q[:,j]) < 0
+        if dot(view(Q,:,1), view(Q,:,j)) < 0
             Q[:,j] = -Q[:,j]
         end
     end
@@ -58,8 +58,33 @@ function compute_err(X_gt, X_sol, Q_avg, error_measure)
         xsolᵢ = vec(@views X_sol[i] * Q_avg)
         err[i] = error_measure(xgtᵢ, xsolᵢ)
     end
+    if any(isnan.(err))
+        println(X_sol)
+        display(Q_avg)
+    end
+
     return err
 end
+
+function compute_Z!(Z::AbstractArray{Projectivity}, X::AbstractVector{Projectivity};dims=4, noise_type="elemental", σ=0.0)
+    n = size(Z,1)
+    for i=1:n
+        for j=1:i
+            if i==j
+                continue
+            end
+            if occursin("elemental", noise_type)
+                Z[i,j] = X[i]*inv(X[j]) + Projectivity(rand(Distributions.Normal(0, σ), dims, dims)) # Add noise
+            elseif occursin("angular", noise_type)
+                Z[i,j] = unit_normalize(X[i]*inv(X[j]))
+                θ = abs(rand(Distributions.Normal(0, σ)))
+                angular_noise!(Z[i,j], θ)
+            end
+            Z[j,i] = inv(Z[i,j]) # Symmetric block is inverse
+        end
+    end
+end
+
 
 function create_synthetic(σ;noise_type="elemental_gaussian", error=orthogonal_projection_distance,average=spherical_mean, averaging_methods=["sphere"], kwargs...)
     normalize_matrix = get(kwargs, :normalize_matrix, false)
@@ -75,21 +100,7 @@ function create_synthetic(σ;noise_type="elemental_gaussian", error=orthogonal_p
     end
 
     Z = SizedMatrix{n,n,Projectivity}(repeat([Projectivity(false)],n,n)) # Relative projectivities
-    for i=1:n
-        for j=1:i
-            if i==j
-                continue
-            end
-            if occursin("elemental", noise_type)
-                Z[i,j] = X_gt[i]*inv(X_gt[j]) + Projectivity(rand(Distributions.Normal(0, σ), dims, dims)) # Add noise
-            elseif occursin("angular", noise_type)
-                Z[i,j] = unit_normalize(X_gt[i]*inv(X_gt[j]))
-                θ = abs(rand(Distributions.Normal(0, σ)))
-                angular_noise!(Z[i,j], θ)
-            end
-            Z[j,i] = inv(Z[i,j]) # Symmetric block is inverse
-        end
-    end
+    compute_Z!(Z, X_gt;dims=dims, noise_type=noise_type, σ=σ)
     
     # Make holes
     A = missing
@@ -117,6 +128,7 @@ function create_synthetic(σ;noise_type="elemental_gaussian", error=orthogonal_p
     if normalize_matrix
         Z = unit_normalize.(Z)
     end
+    return X_gt, Z
     #Global Methods:
     # X_solᵢ*Q = Xᵢ
     # Either take Q = Xᵢ for the anchor node i, OR
@@ -129,13 +141,22 @@ function create_synthetic(σ;noise_type="elemental_gaussian", error=orthogonal_p
     err = compute_err(X_gt, X_sol_spanningTree, Q_avg_spanningTree, error)
 
     #2. Spectral 
-    X_sol_spectral = projectivity_synch_spectral(copy(Z))
-    Q_avg_spectral = compute_Q(Q, X_sol_spectral, X_gt, average)
-    err = hcat(err, compute_err(X_gt, X_sol_spectral, Q_avg_spectral, error))
-    
+    # X_sol_spectral = projectivity_synch_spectral(copy(Z))
+    # Q_avg_spectral = compute_Q(Q, X_sol_spectral, X_gt, average)
+    # err = hcat(err, compute_err(X_gt, X_sol_spectral, Q_avg_spectral, error))
+ 
+    #3. Robust Spectral
+    # X_sol_robust_spectral = iteratively_weighted_synchronization(copy(Z), "spectral", max_it=30, δ=1e-2)
+    # Q_avg_robust_spectral = compute_Q(Q, X_sol_robust_spectral, X_gt, average)
+    # err = hcat(err, compute_err(X_gt, X_sol_robust_spectral, Q_avg_robust_spectral, error))
+
     # Iterative methods
     for method in averaging_methods
-        X_sol_iterative = iterative_projective_synchronization(copy(Z);X₀=X_sol_spectral, averaging_method=method,kwargs...)
+        if occursin("irls", lowercase(method))
+            X_sol_iterative = iteratively_weighted_synchronization(copy(Z), method, error_measure=error, max_it=30, averaging_max_it=30, δ=1e-2)
+        else
+            X_sol_iterative = iterative_projective_synchronization(copy(Z);X₀=X_sol_spanningTree, averaging_method=method,kwargs...)
+        end            
         Q_avg_method = compute_Q(Q, X_sol_iterative, X_gt, average)
         err = hcat(err, compute_err(X_gt, X_sol_iterative, Q_avg_method, error))
     end
@@ -144,7 +165,7 @@ function create_synthetic(σ;noise_type="elemental_gaussian", error=orthogonal_p
     
 end
 
-# avg_methods = ["sphere", "A1", "dyadic", "euclidean", "weiszfeld" ]
-# avg_methods = ["dyadic"]
-# Err = create_synthetic(0.1, average=spherical_mean , averaging_methods=avg_methods, error=angular_distance, outliers=0.0,  frames=25);
-# rad2deg.(median.(eachcol(Err)))
+# avg_methods = [ "sphere-irls" ]
+# avg_methods = ["sphere", "weiszfeld", "robust-sphere", "robust-A1L2", "robust-weiszfeld" ]
+# rad2deg.(mean.(eachcol(Err)))
+# X_gt, Z = create_synthetic(0.1, outliers=0.1);

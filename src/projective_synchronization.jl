@@ -6,6 +6,7 @@ using LinearAlgebra, StaticArrays, Statistics, SparseArrays, Graphs, Arpack, Pro
 
 #Common
 include("common/datatypes.jl")
+include("common/losses.jl")
 
 #Distances
 include("distance_measures/distances.jl")
@@ -18,6 +19,7 @@ include("Averaging/least_squares.jl")
 #Synchroniation
 include("synchronization/iterative_synchronization.jl")
 include("synchronization/global_synchronization.jl")
+include("synchronization/weighted_synchronization.jl")
 
 #Synthetic
 include("synthetic/simulation.jl")
