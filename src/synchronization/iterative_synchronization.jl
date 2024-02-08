@@ -4,7 +4,7 @@ function iterative_projective_synchronization(Z::AbstractMatrix{Projectivity};Xâ
     method = get(kwargs, :averaging_method, "sphere")
     dim = get(kwargs, :dimension, 4)
     max_it = get(kwargs, :max_iterations, 100)
-    max_updates = get(kwargs, :max_updates, 70)
+    max_updates = get(kwargs, :max_updates, 100)
     min_updates = get(kwargs, :min_updates, 20)
     Î´ = get(kwargs, :Î´, 1e-10)
     
@@ -51,6 +51,7 @@ function iterative_projective_synchronization(Z::AbstractMatrix{Projectivity};Xâ
         X = SizedVector{n, Projectivity}(repeat([Projectivity(SMatrix{dim,dim, Float64}(I))], n)) 
     else
         X = copy(Xâ‚€)
+        updated .= 1
     end
     # Set anchor node according to maximum closeness centrality
     C = closeness_centrality(G)
@@ -60,14 +61,16 @@ function iterative_projective_synchronization(Z::AbstractMatrix{Projectivity};Xâ
     iter=0
 
     nodes = collect(1:n)
-    Random.shuffle!(nodes)
+    # nodes = sortperm(C)
+    # Try reverse
+    
     exit_loop = false
     while !exit_loop
         if iter>=max_it
             exit_loop=true
             continue
         end
-        # Random.shuffle!(nodes)
+        Random.shuffle!(nodes)
         for i in nodes
             # wts =  (max_updates .- updated)./max_updates .* .!steady
             # Change to random permutation at each step. i.e. update each node once before updating any node again.
@@ -85,14 +88,14 @@ function iterative_projective_synchronization(Z::AbstractMatrix{Projectivity};Xâ
             X[i] = Projectivity(average(i, X, updated_N, Z, SVector{length(updated_N),Float64}(weights[i,updated_N])))
             updated[i] += 1
             steady[i] = updated[i] > min_updates && norm((oldX - X[i]).P)/norm(oldX.P) < Î´
-
-                if all(steady)  || all(updated .> max_updates)
+            if all(steady)  || all(updated .>= max_updates)
                 exit_loop=true
                 break
             end
         end
         iter += 1
     end
+    println(iter)
     return X
 end   
 

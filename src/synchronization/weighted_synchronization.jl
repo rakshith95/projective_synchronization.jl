@@ -1,4 +1,4 @@
-function  iteratively_weighted_synchronization(Z::AbstractArray{Projectivity}, synchronization_method::String;average=spherical_mean, averaging_max_it=10, weight_function=cauchy, c=c_cauchy, h=h_robust, error_measure=angular_distance, max_it=100, δ=1e-6)
+function  iteratively_weighted_synchronization(Z::AbstractArray{Projectivity}, synchronization_method::String; averaging_max_it=10, weight_function=cauchy, c=c_cauchy, h=h_robust, error_measure=angular_distance, max_it=100, δ=1e-6)
     exit_loop = false
     iter = 0
     n = size(Z,1)
@@ -14,13 +14,18 @@ function  iteratively_weighted_synchronization(Z::AbstractArray{Projectivity}, s
     weights = SMatrix{n,n,Float64}(ones(n,n))
     X_prev = SizedVector{n, Projectivity}(repeat([Projectivity(SMatrix{dims,dims, Float64}(I))], n)) 
     # Q = MMatrix{dims*dims, n, Float64}(zeros(dims*dims, n))
-    Ẑ = SizedMatrix{n,n, Projectivity}(repeat([Projectivity(SMatrix{dims,dims,Float64}(I) )], n, n)) 
+    # Ẑ = SizedMatrix{n,n, Projectivity}(repeat([Projectivity(SMatrix{dims,dims,Float64}(I) )], n, n)) 
+    Ẑ = SparseMatrixCSC{Projectivity, Integer}(repeat([Projectivity( SMatrix{dims,dims,Float64}(I) )],n,n)) # Relative projectivities
     prev_weights = zero(weights)
     while !exit_loop && iter < max_it
         if occursin("spectral", lowercase(synchronization_method))
             X = projectivity_synch_spectral(copy(Z), weights)
         else
-            X = iterative_projective_synchronization(copy(Z); X₀=X_prev, averaging_method=synchronization_method, weights=weights, max_iterations=averaging_max_it)
+            if iszero(iter)
+                X = iterative_projective_synchronization(copy(Z); averaging_method=synchronization_method, weights=weights, max_iterations=averaging_max_it)
+            else
+                X = iterative_projective_synchronization(copy(Z); X₀=X_prev, averaging_method=synchronization_method, weights=weights, max_iterations=averaging_max_it)
+            end
         end
         # Q_avg = compute_Q(Q, X, X_prev, average)
         compute_Z!(Ẑ, X)
@@ -43,17 +48,18 @@ function  iteratively_weighted_synchronization(Z::AbstractArray{Projectivity}, s
         weights = SMatrix{n,n,Float64}(weight_function.(E/(h*c*s)) )
         iter+=1
         #Check break logic
-        println(median(norm.(X.-X_prev)))
         # println(mean(compute_err(X, X_prev, SMatrix{4,4,Float64}(I), error_measure)), "\t", δ )
         # rel_weights_diff = abs.(weights - prev_weights)./prev_weights
         # if any(isfinite.(rel_weights_diff)) && median(rel_weights_diff[isfinite.(rel_weights_diff)]) < δ
+        # println(rad2deg(mean((compute_err(X, X_prev, SMatrix{4,4,Float64}(I), error_measure)))))
         if mean(compute_err(X, X_prev, SMatrix{4,4,Float64}(I), error_measure)) < δ
-                exit_loop = true
+            X_prev = X
+            exit_loop = true
         end
         X_prev = X
         prev_weights = weights
     end
-    println(iter)
+    # println(iter)
     return X_prev
 end
 function iteratively_weighted_averaging(M::AbstractArray{T}, average; weight_function=cauchy, c=c_cauchy, h=h_robust, error_measure=angular_distance, max_it=100, δ=1e-5) where T<:AbstractFloat
@@ -88,16 +94,18 @@ function iteratively_weighted_averaging(M::AbstractArray{T}, average; weight_fun
     return x_prev
 end
 
-
-# X = iteratively_weighted_synchronization(copy(Z), "sphere", average=weiszfeld, error_measure=orthogonal_projection_distance, max_it=30, averaging_max_it=20, δ=deg2rad(1));
+# Y = iteratively_weighted_synchronization(copy(Z), "sphere", error_measure=angular_distance, max_it=100, averaging_max_it=5, δ=deg2rad(0.1));
 # Q = MMatrix{4*4, 25, Float64}(zeros(16, 25));
-# Q_avg = compute_Q(Q, X, X_gt, weiszfeld);
-# rad2deg(median(compute_err(X_gt, X, Q_avg, angular_distance)))
+# Q_avg = compute_Q(Q, Y, X_gt, spherical_mean);
+# rad2deg(median(compute_err(X_gt, Y, Q_avg, angular_distance)))
 
+
+#  
 # X_nr = iterative_projective_synchronization(copy(Z); averaging_method="sphere");
+# X_nr = iteratively_weighted_synchronization(copy(Z), "sphere", error_measure=angular_distance, max_it=30, averaging_max_it=30, δ=deg2rad(0.1));
 # Q_avg_nr = compute_Q(Q, X_nr, X_gt, weiszfeld);
 # rad2deg(median(compute_err(X_gt, X_nr, Q_avg_nr, angular_distance)))
 
-# X_r_inner = iterative_projective_synchronization(copy(Z); averaging_method="robust-weiszfeld");
+# X_r_inner = iterative_projective_synchronization(copy(Z); averaging_method="robust-sphere");
 # Q_avg_r_innter = compute_Q(Q, X_r_inner, X_gt, weiszfeld);
 # rad2deg(median(compute_err(X_gt, X_r_inner, Q_avg_r_innter, angular_distance)))

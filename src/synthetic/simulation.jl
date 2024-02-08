@@ -58,11 +58,6 @@ function compute_err(X_gt, X_sol, Q_avg, error_measure)
         xsolᵢ = vec(@views X_sol[i] * Q_avg)
         err[i] = error_measure(xgtᵢ, xsolᵢ)
     end
-    if any(isnan.(err))
-        println(X_sol)
-        display(Q_avg)
-    end
-
     return err
 end
 
@@ -99,7 +94,8 @@ function create_synthetic(σ;noise_type="elemental_gaussian", error=orthogonal_p
         X_gt[i] = Projectivity(MMatrix{dims,dims,Float64}(Xᵢ/norm(Xᵢ)))
     end
 
-    Z = SizedMatrix{n,n,Projectivity}(repeat([Projectivity(false)],n,n)) # Relative projectivities
+    # Z = SizedMatrix{n,n,Projectivity}(repeat([Projectivity(false)],n,n)) # Relative projectivities
+    Z = SparseMatrixCSC{Projectivity, Integer}(repeat([Projectivity(false)],n,n)) # Relative projectivities
     compute_Z!(Z, X_gt;dims=dims, noise_type=noise_type, σ=σ)
     
     # Make holes
@@ -128,7 +124,7 @@ function create_synthetic(σ;noise_type="elemental_gaussian", error=orthogonal_p
     if normalize_matrix
         Z = unit_normalize.(Z)
     end
-    return X_gt, Z
+    # return X_gt, Z
     #Global Methods:
     # X_solᵢ*Q = Xᵢ
     # Either take Q = Xᵢ for the anchor node i, OR
@@ -153,7 +149,7 @@ function create_synthetic(σ;noise_type="elemental_gaussian", error=orthogonal_p
     # Iterative methods
     for method in averaging_methods
         if occursin("irls", lowercase(method))
-            X_sol_iterative = iteratively_weighted_synchronization(copy(Z), method, error_measure=error, max_it=30, averaging_max_it=30, δ=1e-2)
+            X_sol_iterative = iteratively_weighted_synchronization(copy(Z), method, error_measure=error, max_it=100, averaging_max_it=5, δ=deg2rad(0.1))
         else
             X_sol_iterative = iterative_projective_synchronization(copy(Z);X₀=X_sol_spanningTree, averaging_method=method,kwargs...)
         end            
@@ -165,7 +161,9 @@ function create_synthetic(σ;noise_type="elemental_gaussian", error=orthogonal_p
     
 end
 
-# avg_methods = [ "sphere-irls" ]
+# avg_methods = ["sphere", "sphere-robust", "sphere-irls" ];
 # avg_methods = ["sphere", "weiszfeld", "robust-sphere", "robust-A1L2", "robust-weiszfeld" ]
+# Err = create_synthetic(0.1, average=spherical_mean , averaging_methods=avg_methods, error=angular_distance, outliers=0.0,  frames=25);
 # rad2deg.(mean.(eachcol(Err)))
-# X_gt, Z = create_synthetic(0.1, outliers=0.1);
+
+# X_gt, Z = create_synthetic(0.1, outliers=0.3);

@@ -8,9 +8,30 @@ end
 Projectivity(P::Q) where Q = Projectivity(P, true)
 Projectivity(b::Bool) = Projectivity(nothing, b)
 
+function wrap!(Z::AbstractMatrix{Projectivity}, Z_unwrapped::AbstractMatrix{T}, dim::Int) where T<:AbstractFloat
+    for (ct,idx) in enumerate(TileIterator(axes(Z_unwrapped), (dim,dim)))
+        if !iszero(@views Z_unwrapped[idx...])
+            Z[ct] = Projectivity(SMatrix{dim,dim,T}(@views Z_unwrapped[idx...]))
+        else
+            Z[ct] = Projectivity(false)
+        end
+    end
+end
+
+function wrap!(Z::SparseArrays.SparseMatrixCSC, Z_unwrapped::AbstractMatrix{T}, dim::Int) where T<:AbstractFloat
+    for (ct,idx) in enumerate(TileIterator(axes(Z_unwrapped), (dim,dim)))
+        if !iszero(@views Z_unwrapped[idx...])
+            Z[ct] = Projectivity(SMatrix{dim,dim,T}(@views Z_unwrapped[idx...]))
+        else
+            Z[ct] = Projectivity(false)
+        end
+    end
+end
+
+
 function unwrap!(Q::Projectivity, P::AbstractMatrix{T}) where T
     if Q.exists
-        P[:,:] = @views Q.P
+        P[:,:] = Q.P
         return true
     else
         return false
@@ -38,6 +59,8 @@ function unwrap!(Z′::AbstractMatrix{F}, Z::AbstractMatrix{Projectivity}) where
         for j=1:dims:(n*dims)-dims+1
             if Z[div(i,dims)+1,div(j,dims)+1].exists
                 Z′[i:i+dims-1, j:j+dims-1] = @views Z[div(i,dims)+1,div(j,dims)+1].P
+            else
+                Z′[i:i+dims-1, j:j+dims-1] = zeros(dims,dims, F)
             end
         end
     end
@@ -103,6 +126,8 @@ end
 function Base.zero(P::Projectivity{Q}) where Q
     return !P.exists
 end
+ 
+Base.zero(::Type{Projectivity}) = Projectivity(false)  
 
 function +(P::Projectivity, Q::Projectivity)
     if P.exists && Q.exists
@@ -170,13 +195,5 @@ function inv(P::Projectivity)
         return Projectivity(inv(P.P))
     else
         return Projectivity(false)
-    end
-end
-
-function norm(P::Projectivity)
-    if P.exists
-        return norm(P.P)
-    else
-        return 0.0
     end
 end
