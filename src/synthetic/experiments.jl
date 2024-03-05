@@ -5,7 +5,7 @@ function synchronization_sensitivity(;methods=["spanning-tree", "spectral", "sph
         for σ=tqdm(parameter_min:parameter_range:parameter_max)
             Eᵢ = Vector{Vector{Float64}}(undef, num_trials)
             for j=tqdm(1:num_trials)
-                Eⱼ = create_synthetic(σ, noise_type=noise_type, averaging_methods=methods, error=error)    
+                Eⱼ = create_synthetic(σ, noise_type=noise_type, averaging_methods=methods, error=error, anchor="centrality", update="all-random")    
                 if error==angular_distance
                     e = rad2deg.(mean.(eachcol(Eⱼ)))
                 else
@@ -22,7 +22,7 @@ function synchronization_sensitivity(;methods=["spanning-tree", "spectral", "sph
         for ρ=tqdm(parameter_min:parameter_range:parameter_max)
             Eᵢ = Vector{Vector{Float64}}(undef, num_trials)
             for j=tqdm(1:num_trials)
-                Eⱼ = create_synthetic(σ_fixed, noise_type=noise_type, averaging_methods=methods, error=error, holes_density=ρ)    
+                Eⱼ = create_synthetic(σ_fixed, noise_type=noise_type, averaging_methods=methods, error=error, holes_density=ρ, anchor="centrality", update="all-random")  
                 if error==angular_distance
                     e = rad2deg.(mean.(eachcol(Eⱼ)))
                 else
@@ -39,7 +39,7 @@ function synchronization_sensitivity(;methods=["spanning-tree", "spectral", "sph
         for n=tqdm(parameter_min:parameter_range:parameter_max)
             Eᵢ = Vector{Vector{Float64}}(undef, num_trials)
             for j=tqdm(1:num_trials)
-                Eⱼ = create_synthetic(σ_fixed, noise_type=noise_type, averaging_methods=methods, error=error, frames=n)    
+                Eⱼ = create_synthetic(σ_fixed, noise_type=noise_type, averaging_methods=methods, error=error, frames=n, anchor="centrality", update="all-random")
                 if error==angular_distance
                     e = rad2deg.(mean.(eachcol(Eⱼ)))
                 else
@@ -56,7 +56,7 @@ function synchronization_sensitivity(;methods=["spanning-tree", "spectral", "sph
         for Ρ=tqdm(parameter_min:parameter_range:parameter_max)
             Eᵢ = Vector{Vector{Float64}}(undef, num_trials)
             for j=tqdm(1:num_trials)
-                Eⱼ = create_synthetic(σ_fixed, noise_type=noise_type, averaging_methods=methods, error=error, outliers=Ρ)    
+                Eⱼ = create_synthetic(σ_fixed, noise_type=noise_type, averaging_methods=methods, error=error, outliers=Ρ, anchor="centrality", update="all-random")    
                 if error==angular_distance
                     e = rad2deg.(mean.(eachcol(Eⱼ)))
                 else
@@ -72,25 +72,74 @@ function synchronization_sensitivity(;methods=["spanning-tree", "spectral", "sph
 
 end
 
-# avg_methods = ["sphere", "A1"]#, "dyadic", "least-squares-orthogonal", "gaia", "euclidean", "weiszfeld" ]
-# avg_methods = ["sphere", "sphere-irls", "weiszfeld-irls",  "robust-sphere", "robust-weiszfeld" ];
-# all_methods = ["spanning-tree"; avg_methods];
-# all_methods = ["spanning-tree"; "spectral"; "spectral-irls"; avg_methods];
-# E_noise = synchronization_sensitivity(methods=avg_methods, noise_type="angular", parameter_min=0.0, parameter_range=0.05, parameter_max=0.25, num_trials=50, error=angular_distance);
-# E_holesDensity_pointOne = synchronization_sensitivity(methods=avg_methods, noise_type="angular", vary_parameter="density", σ_fixed=0.1 ,parameter_min=0.0, parameter_range=0.15, parameter_max=0.9, num_trials=60, error=angular_distance);
-# E_outliers_Zero = synchronization_sensitivity(methods=avg_methods, noise_type="angular", vary_parameter="outliers", σ_fixed=0.0 ,parameter_min=0.0, parameter_range=0.1, parameter_max=0.6, num_trials=100, error=angular_distance);
-# E_outliers_pointOne = synchronization_sensitivity(methods=avg_methods, noise_type="angular", vary_parameter="outliers", σ_fixed=0.1 ,parameter_min=0.0, parameter_range=0.1, parameter_max=0.6, num_trials=100, error=angular_distance);
-# E_frames_pointOne = synchronization_sensitivity(methods=avg_methods, noise_type="angular", vary_parameter="frames", σ_fixed=0.1 ,parameter_min=10, parameter_range=15, parameter_max=50, num_trials=100, error=angular_distance);
+function synchronization_timer(vary_parameter;methods=["spanning-tree", "spectral", "sphere", "dyadic", "euclidean", "weiszfeld" ], noise_type="angular", σ_fixed=0.1, num_trials=Int(1e3), parameter_min=0.0, parameter_range=0.1, parameter_max=1.0, error=angular_distance)
+    T = Vector{Vector{Vector{Float64}}}(undef, length(collect(parameter_min:parameter_range:parameter_max)))
+    
+    if occursin("density", lowercase(vary_parameter)) && !occursin("outliers", lowercase(vary_parameter))
+        i=1
+        for ρ=tqdm(parameter_min:parameter_range:parameter_max)
+            Tᵢ = Vector{Vector{Float64}}(undef, num_trials)
+            for j=tqdm(1:num_trials)
+                Tᵢ[j] = create_synthetic(σ_fixed, noise_type=noise_type, averaging_methods=methods, error=error, holes_density=ρ, anchor="centrality", update="all-random")
+            end
+            T[i] = Tᵢ
+            i += 1
+        end
+        return T
+    elseif occursin("frames", lowercase(vary_parameter))
+        i=1
+        for n=tqdm(parameter_min:parameter_range:parameter_max)
+            Tᵢ = Vector{Vector{Float64}}(undef, num_trials)
+            for j=tqdm(1:num_trials)
+                Tⱼ = create_synthetic(σ_fixed, noise_type=noise_type, averaging_methods=methods, error=error, frames=n, anchor="centrality", update="all-random")
+                Tᵢ[j] = Tⱼ
+            end
+            T[i] = Tᵢ
+            i += 1
+        end
+        return T
+    end
+end
+    
+
+
+# all_methods = ["spanning-tree"; "spectral"; avg_methods];
+# T_frames_pointOne = synchronization_timer("frames"; methods=avg_methods,  σ_fixed=0.1 ,parameter_min=10, parameter_range=15, parameter_max=100, num_trials=1000, error=angular_distance);
+# avg_methods = ["dyadic", "sphere", "weiszfeld"];
+# T_holesDensity_pointOne = synchronization_timer("density";methods=avg_methods, σ_fixed=0.1 ,parameter_min=0.0, parameter_range=0.05, parameter_max=0.95, num_trials=1000, error=angular_distance);
+# Ts_matrix = stack(stack.(T_holesDensity_pointOne)');
+# Ts_matrix = dropdims(Ts_matrix, dims = tuple(findall(size(Ts_matrix) .== 1)...));
+# file = MAT.matopen("times_new_holes.mat", "w")
+# write(file, "T_fixed", Ts_matrix)
+# close(file)
+ 
+
+
+
+
+
+# E_noise = synchronization_sensitivity(methods=avg_methods, noise_type="angular", parameter_min=0.0, parameter_range=0.025, parameter_max=0.2, num_trials=1000, error=angular_distance);
+# E_holesDensity_pointOne = synchronization_sensitivity(;methods=avg_methods, noise_type="angular", vary_parameter="dens    ity", σ_fixed=0.1 ,parameter_min=0.0, parameter_range=0.05, parameter_max=0.95, num_trials=1000, error=angular_distance);
+# E_outliers_Zero = synchronization_sensitivity(methods=avg_methods, noise_type="angular", vary_parameter="outliers", σ_fixed=0.0 ,parameter_min=0.0, parameter_range=0.1, parameter_max=0.6, num_trials=1000, error=angular_distance);
+# E_outliers_pointOne = synchronization_sensitivity(methods=avg_methods, noise_type="angular", vary_parameter="outliers", σ_fixed=0.1, parameter_min=0.0, parameter_range=0.1, parameter_max=0.6, num_trials=1000, error=angular_distance);
+# E_frames_pointOne = synchronization_sensitivity(methods=avg_methods, noise_type="angular", vary_parameter="frames", σ_fixed=0.1 ,parameter_min=10, parameter_range=15, parameter_max=100, num_trials=1000, error=angular_distance);
 # p = plot_sensitivity_boxplot(E_noise, ["spectral", "sphere", "dyadic", "least-squares-orthogonal", "gaia", "euclidean", "weiszfeld" ], σ=collect(0:0.05:0.2))
 
 # import GLMakie
 # all_methods[4] = "A1-L1"
 # colors = ["green", "red", "purple", "yellow", "black", "blue" ];
-# f,a = plot_sensitivity_curves(E_noise, varying_parameter="Noise (Degrees)", all_methods, colors=colors, parameter=rad2deg.(collect(0.0:0.05:0.25)))
-# GLMakie.save("NoiseMean.png", f)
+# f,a = plot_sensitivity_curves(E_holesDensity_pointOne, varying_parameter="Holes Density", all_methods, parameter=collect(0.7:0.05:0.95),)
+# GLMakie.save("Holes_outliers.png", f)
 
 # M = stack(E[1])'
 # median.(eachcol(M))
+
+# Errs_matrix = stack(stack.(E_outliers_pointOne)');
+# Errs_matrix = dropdims(Errs_matrix, dims = tuple(findall(size(Errs_matrix) .== 1)...));
+# file = MAT.matopen("outliers_0_pointOne_point6_1000Trials_fixedNoisePointOne.mat", "w")
+# write(file, "E", Errs_matrix)
+# close(file)
+
 
 #=
 using JLD2
@@ -99,3 +148,5 @@ using JLD2
 @load "synchronization_sensitivity_noise_zero_to_zeroPointtwo.jld2"  
 @load "saved_envs/synchronization_sensitivity_noise_zero_pointOne_point5.jld2"
 =#
+
+

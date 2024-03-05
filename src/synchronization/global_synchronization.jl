@@ -3,7 +3,11 @@ function projectivity_synch_spectral(Z::AbstractMatrix{Projectivity})
 
     n = size(Z,1)
     dims = size(Z[findfirst(!zero, Z)].P, 1)    
-    X = SizedVector{n, Projectivity}(repeat([Projectivity(false )], n)) 
+    if n <= 50
+        X = SizedVector{n, Projectivity}(repeat([Projectivity(SMatrix{dims,dims,Float64}(I) )], n)) 
+    else
+        X = Vector{Projectivity}(repeat([Projectivity(SMatrix{dims,dims, Float64}(I))], n))
+    end
 
     Adj = sparse(zeros(n,n))
     Adj[findall(!zero, Z)] .= 1
@@ -15,7 +19,7 @@ function projectivity_synch_spectral(Z::AbstractMatrix{Projectivity})
     end
     
     iD = diagm(1 ./sum.(eachcol(Adj)))
-    Z′ = sparse(zeros(Complex, n*dims, n*dims))
+    Z′ = zeros(ComplexF64, n*dims, n*dims)
     unwrap!(Z′, Z)
     S = kron(iD, SMatrix{dims,dims,ComplexF64}(I))*Z′
     # M, will contain the blocks of the nodes 
@@ -35,10 +39,14 @@ end
 
 function projectivity_synch_spectral(Z::AbstractMatrix{Projectivity}, weights::SMatrix{N,N,T}) where {N,T<:AbstractFloat}
     # Based on spectral solution for synchronization in GL(d) : https://iris.unitn.it/retrieve/handle/11572/272068/360005/ijcv20.pdf
-
+    
     n = size(Z,1)
     dims = size(Z[findfirst(!zero, Z)].P, 1)    
-    X = SizedVector{n, Projectivity}(repeat([Projectivity(false )], n)) 
+    if n <= 50
+        X = SizedVector{n, Projectivity}(repeat([Projectivity(SMatrix{dims,dims,Float64}(I) )], n)) 
+    else
+        X = Vector{Projectivity}(repeat([Projectivity(SMatrix{dims,dims, Float64}(I))], n))
+    end
 
     # Adj[findall(!zero, Z)] .= 1
     # Adj = sparse(Adj .* weights)
@@ -74,7 +82,11 @@ end
 function spanning_tree_synchronization(Z::AbstractMatrix{Projectivity})
     n = size(Z,1)
     dims = size(Z[findfirst(!zero, Z)].P, 1)    
-    X = SizedVector{n, Projectivity}(repeat([Projectivity(SMatrix{dims,dims,Float64}(I) )], n)) 
+    if n <= 50
+        X = SizedVector{n, Projectivity}(repeat([Projectivity(SMatrix{dims,dims,Float64}(I) )], n)) 
+    else
+        X = Vector{Projectivity}(repeat([Projectivity(SMatrix{dims,dims, Float64}(I))], n))
+    end
 
     Adj = sparse(zeros(n,n))
     Adj[findall(!zero, Z)] .= 1

@@ -4,10 +4,11 @@ function iterative_projective_synchronization(Z::AbstractMatrix{Projectivity};Xâ
     method = get(kwargs, :averaging_method, "sphere")
     dim = get(kwargs, :dimension, 4)
     max_it = get(kwargs, :max_iterations, 100)
-    max_updates = get(kwargs, :max_updates, 100)
-    min_updates = get(kwargs, :min_updates, 20)
+    max_updates = get(kwargs, :max_updates, max_it)
+    min_updates = get(kwargs, :min_updates, 10)
     Î´ = get(kwargs, :Î´, 1e-10)
-    
+    update_method = get(kwargs, :update, "all-random")
+    set_anchor = get(kwargs, :anchor, "fixed")
     if occursin("robust", lowercase(method))
         if occursin("sphere", lowercase(method))
             average = robust_average_sphere
@@ -48,21 +49,78 @@ function iterative_projective_synchronization(Z::AbstractMatrix{Projectivity};Xâ
 
     # Initialize nodes to have identity dimxdim matrices (this will be overridden for all but the anchor)
     if isnothing(Xâ‚€)
-        X = SizedVector{n, Projectivity}(repeat([Projectivity(SMatrix{dim,dim, Float64}(I))], n)) 
+        if n <= 50
+            X = SizedVector{n, Projectivity}(repeat([Projectivity(SMatrix{dim,dim, Float64}(I))], n)) 
+        else
+            X = Vector{Projectivity}(repeat([Projectivity(SMatrix{dim,dim, Float64}(I))], n))
+        end
     else
-        X = copy(Xâ‚€)
+        X = Xâ‚€
         updated .= 1
+        anchor_found = false
+        for i=1:length(X)
+            if isapprox(X[i].P, SMatrix{dim, dim, Float64}(I))
+                anchor_found = true
+                anchor = i 
+                updated[anchor] = max_updates
+                steady[anchor] = true
+            end
+        end
+        if !anchor_found
+            set_anchor = "nothing"
+        else
+            set_anchor = nothing
+        end
     end
-    # Set anchor node according to maximum closeness centrality
-    C = closeness_centrality(G)
-    _,anchor = findmax(C)
-    updated[anchor] = max_updates
-    steady[anchor] = true
-    iter=0
+    
+    C=missing
+    try
+        C = eigenvector_centrality(G)
+    catch
+        C = degree_centrality(G, normalize=false)
+    end
+    if median(C) < 1e-5
+        C = degree_centrality(G, normalize=false)
+    end
+    
+    if !isnothing(set_anchor)
+        if occursin("centrality", set_anchor)
+            # Set anchor node according to centrality
+            if median(C) < 1e-6
+                _,anchor = findmax(C)
+            else
+                N = neighbors(G,findmax(C)[2])
+                N_degs = C[N]        
+                anchor = N[findmin(N_degs)[2]]
+            end
+            updated[anchor] = max_updates
+            steady[anchor] = true
+        elseif occursin("fixed", set_anchor)
+            anchor = 1
+            updated[anchor] = max_updates
+            steady[anchor] = true
+        elseif occursin("rand", set_anchor)
+            anchor = rand(1:n)
+            updated[anchor] = max_updates
+            steady[anchor] = true
+        elseif occursin("nothing", set_anchor) || occursin("none", set_anchor)
+            anchor = rand(1:n)
+            updated[anchor] = 1
+        end 
+    end
 
+    iter=0
     nodes = collect(1:n)
-    # nodes = sortperm(C)
-    # Try reverse
+    if occursin("start", lowercase(update_method))
+        if occursin("centrality", lowercase(update_method))
+            nodes = sortperm(C)
+            # Try reverse
+        else
+            nodes = collect(1:n)
+            Random.shuffle!(nodes)
+        end
+    end
+
     
     exit_loop = false
     while !exit_loop
@@ -70,19 +128,41 @@ function iterative_projective_synchronization(Z::AbstractMatrix{Projectivity};Xâ
             exit_loop=true
             continue
         end
-        Random.shuffle!(nodes)
-        for i in nodes
-            # wts =  (max_updates .- updated)./max_updates .* .!steady
-            # Change to random permutation at each step. i.e. update each node once before updating any node again.
-            # i = StatsBase.wsample(unit_normalize!(wts))
-            if steady[i] 
-                continue
+        if occursin("all", lowercase(update_method))
+            prev_steady = copy(steady)
+            if occursin("random", lowercase(update_method))
+                Random.shuffle!(nodes)
             end
+            for i in nodes
+                if prev_steady[i] && steady[i] 
+                    continue
+                end
+                N = neighbors(G, i)
+                if iszero(updated[N])
+                    continue
+                end
+
+                oldX = X[i]
+                updated_N = N[updated[N].!=0]
+                X[i] = Projectivity(average(i, X, updated_N, Z, SVector{length(updated_N),Float64}(weights[i,updated_N])))
+                updated[i] += 1
+                steady[i] = updated[i] > min_updates && angular_distance(X[i], oldX) < Î´#norm((oldX - X[i]).P)/norm(oldX.P) < Î´
+                if all(steady)  || all(updated .>= max_updates)
+                    exit_loop=true
+                    break
+                end
+            end
+        else
+            wts =  (max_updates .- updated)./max_updates .* .!steady
+            if iszero(wts)
+               exit_loop = true
+               break
+            end
+            i = StatsBase.wsample(unit_normalize!(wts))
             N = neighbors(G, i)
             if iszero(updated[N])
                 continue
             end
-
             oldX = X[i]
             updated_N = N[updated[N].!=0]
             X[i] = Projectivity(average(i, X, updated_N, Z, SVector{length(updated_N),Float64}(weights[i,updated_N])))
@@ -95,7 +175,7 @@ function iterative_projective_synchronization(Z::AbstractMatrix{Projectivity};Xâ
         end
         iter += 1
     end
-    println(iter)
+    # println(iter)
     return X
 end   
 

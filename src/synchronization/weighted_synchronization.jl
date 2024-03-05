@@ -1,4 +1,25 @@
-function  iteratively_weighted_synchronization(Z::AbstractArray{Projectivity}, synchronization_method::String; averaging_max_it=10, weight_function=cauchy, c=c_cauchy, h=h_robust, error_measure=angular_distance, max_it=100, δ=1e-6)
+function compute_weights(Z::AbstractMatrix, Ẑ::AbstractMatrix, dims::Int;error_measure=angular_distance, weight_function=cauchy, c=c_cauchy, h=h_robust)
+    n = size(Z,1)
+    E_UT = error_measure.(UpperTriangular(Z),UpperTriangular(Ẑ))
+    E_LT = error_measure.(LowerTriangular(Z),LowerTriangular(Ẑ))
+    E = min.(E_UT, E_LT')
+    E = E + E'
+    s = StatsBase.mad(E[.!isinf.(E)])
+    if iszero(s)
+        s = std(E[.!isinf.(E)])
+    end
+    if iszero(s)
+        return false
+    end
+    if n*dims<=100
+        wts = SMatrix{n,n,Float64}(weight_function.(E/(h*c*s)) )
+    else
+        wts = weight_function.(E/(h*c*s)) 
+    end
+end
+
+function  iteratively_weighted_synchronization(Z::AbstractArray{Projectivity}, synchronization_method::String;weights=nothing, X₀=nothing, averaging_max_it=10, weight_function=cauchy, c=c_cauchy, h=h_robust, error_measure=angular_distance, max_it=100, δ_irls=1e-6, kwargs...)
+    max_it_init = get(kwargs, :averaging_max_it_init, 100)
     exit_loop = false
     iter = 0
     n = size(Z,1)
@@ -11,57 +32,46 @@ function  iteratively_weighted_synchronization(Z::AbstractArray{Projectivity}, s
             end
         end
     end
-    weights = SMatrix{n,n,Float64}(ones(n,n))
-    X_prev = SizedVector{n, Projectivity}(repeat([Projectivity(SMatrix{dims,dims, Float64}(I))], n)) 
-    # Q = MMatrix{dims*dims, n, Float64}(zeros(dims*dims, n))
-    # Ẑ = SizedMatrix{n,n, Projectivity}(repeat([Projectivity(SMatrix{dims,dims,Float64}(I) )], n, n)) 
-    Ẑ = SparseMatrixCSC{Projectivity, Integer}(repeat([Projectivity( SMatrix{dims,dims,Float64}(I) )],n,n)) # Relative projectivities
-    prev_weights = zero(weights)
-    while !exit_loop && iter < max_it
-        if occursin("spectral", lowercase(synchronization_method))
-            X = projectivity_synch_spectral(copy(Z), weights)
+    if isnothing(weights)
+        if n*dims<=100
+            wts = SMatrix{n,n,Float64}(ones(n,n))
         else
-            if iszero(iter)
-                X = iterative_projective_synchronization(copy(Z); averaging_method=synchronization_method, weights=weights, max_iterations=averaging_max_it)
+            wts = ones(n,n)
+        end
+    else
+        wts = weights
+    end
+    X_prev = sparse(repeat([Projectivity(SMatrix{dims,dims, Float64}(I))], n)) 
+    Ẑ = SparseMatrixCSC{Projectivity, Integer}(repeat([Projectivity(false)],n,n)) # Relative projectivities
+    while !exit_loop && iter < max_it
+        if iszero(iter)
+            if isnothing(X₀)
+                X = iterative_projective_synchronization(copy(Z); averaging_method=synchronization_method, weights=wts, max_iterations=max_it_init , kwargs...)
             else
-                X = iterative_projective_synchronization(copy(Z); X₀=X_prev, averaging_method=synchronization_method, weights=weights, max_iterations=averaging_max_it)
+                X = iterative_projective_synchronization(copy(Z); X₀=copy(X₀), averaging_method=synchronization_method, weights=wts, max_iterations=max_it_init , kwargs...)
             end
+        else
+            X = iterative_projective_synchronization(copy(Z); X₀=copy(X_prev), min_updates=0, averaging_method=synchronization_method, weights=wts, max_iterations=averaging_max_it, kwargs...)
         end
-        # Q_avg = compute_Q(Q, X, X_prev, average)
         compute_Z!(Ẑ, X)
-
         # How to deal with the fact that error(a, b) !=  error(inv(a), inv(b)). Discuss further
-        # E = error_measure.(Z,Ẑ)
-        # E = (E_UT + E_LT')/2
-        E_UT = error_measure.(UpperTriangular(Z),UpperTriangular(Ẑ))
-        E_LT = error_measure.(LowerTriangular(Z),LowerTriangular(Ẑ))
-        E = min.(E_UT, E_LT')
-        E = E + E'
-
-        s = StatsBase.mad(E[.!isinf.(E)])
-        if iszero(s)
-            s = std(E[.!isinf.(E)])
+        wts_prev = wts
+        wts = compute_weights(Z, Ẑ, dims, error_measure=error_measure, weight_function=weight_function, c=c, h=h)
+        if typeof(wts) == Bool
+            return X, wts_prev
         end
-        if iszero(s)
-            return X
-        end
-        weights = SMatrix{n,n,Float64}(weight_function.(E/(h*c*s)) )
         iter+=1
         #Check break logic
-        # println(mean(compute_err(X, X_prev, SMatrix{4,4,Float64}(I), error_measure)), "\t", δ )
-        # rel_weights_diff = abs.(weights - prev_weights)./prev_weights
-        # if any(isfinite.(rel_weights_diff)) && median(rel_weights_diff[isfinite.(rel_weights_diff)]) < δ
-        # println(rad2deg(mean((compute_err(X, X_prev, SMatrix{4,4,Float64}(I), error_measure)))))
-        if mean(compute_err(X, X_prev, SMatrix{4,4,Float64}(I), error_measure)) < δ
+        if mean(compute_err(X, X_prev, SMatrix{4,4,Float64}(I), error_measure)) <= δ_irls
             X_prev = X
             exit_loop = true
         end
         X_prev = X
-        prev_weights = weights
     end
     # println(iter)
-    return X_prev
+    return X_prev, wts
 end
+
 function iteratively_weighted_averaging(M::AbstractArray{T}, average; weight_function=cauchy, c=c_cauchy, h=h_robust, error_measure=angular_distance, max_it=100, δ=1e-5) where T<:AbstractFloat
     exit_loop = false
     iter = 0
@@ -94,18 +104,39 @@ function iteratively_weighted_averaging(M::AbstractArray{T}, average; weight_fun
     return x_prev
 end
 
-# Y = iteratively_weighted_synchronization(copy(Z), "sphere", error_measure=angular_distance, max_it=100, averaging_max_it=5, δ=deg2rad(0.1));
-# Q = MMatrix{4*4, 25, Float64}(zeros(16, 25));
-# Q_avg = compute_Q(Q, Y, X_gt, spherical_mean);
-# rad2deg(median(compute_err(X_gt, Y, Q_avg, angular_distance)))
+# Y, wts = iteratively_weighted_synchronization(Z, "sphere", weight_function=welsch, c=c_welsch, error_measure=angular_distance, max_it=20, averaging_max_it=10, δ_irls=deg2rad(0.1), anchor="nothing", update="start-R-all-random");
+
+# Ẑ = SparseMatrixCSC{Projectivity, Integer}(repeat([Projectivity(SMatrix{4,4,Float64}(I) )],25,25)) # Relative projectivities
+# compute_Z!(Ẑ, X_gt);
+# E_UT = angular_distance.(UpperTriangular(Z),UpperTriangular(Ẑ))
+# E_LT = angular_distance.(LowerTriangular(Z),LowerTriangular(Ẑ))
+# E = max.(E_UT, E_LT')
+# E = E + E'
+# s = StatsBase.mad(E[.!isinf.(E)])
+# s = std(E[.!isinf.(E)])
+# err_weights = SMatrix{25,25,Float64}(cauchy.(E/(1.0*c_cauchy*s)) )
 
 
-#  
-# X_nr = iterative_projective_synchronization(copy(Z); averaging_method="sphere");
-# X_nr = iteratively_weighted_synchronization(copy(Z), "sphere", error_measure=angular_distance, max_it=30, averaging_max_it=30, δ=deg2rad(0.1));
-# Q_avg_nr = compute_Q(Q, X_nr, X_gt, weiszfeld);
-# rad2deg(median(compute_err(X_gt, X_nr, Q_avg_nr, angular_distance)))
-
-# X_r_inner = iterative_projective_synchronization(copy(Z); averaging_method="robust-sphere");
-# Q_avg_r_innter = compute_Q(Q, X_r_inner, X_gt, weiszfeld);
-# rad2deg(median(compute_err(X_gt, X_r_inner, Q_avg_r_innter, angular_distance)))
+# i = rand(1:25)
+# j = rand(1:25)
+# for ind in outies
+#     i,j = ind[1], ind[2]
+#     if Z[i,j].exists
+#         println(wts[i,j])
+#         # if !(ind in outies) && !(CartesianIndex(j,i) in outies)
+#             # print(ind,"\t")
+#             # println(wts[ind])
+#         # end
+#     end
+# end
+# for ind in findall(wts .<= 1.0 )#outies
+#     i,j = ind[1], ind[2]
+#     if Z[i,j].exists
+#         # println(weights[i,j])
+#         if !(ind in outies) && !(CartesianIndex(j,i) in outies)
+#             # println(ind in outies)
+#             print(ind,"\t")
+#             println(wts[ind])
+#         end
+#     end
+# end

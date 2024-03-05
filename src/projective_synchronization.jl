@@ -20,7 +20,7 @@ include("Averaging/least_squares.jl")
 include("synchronization/iterative_synchronization.jl")
 include("synchronization/global_synchronization.jl")
 include("synchronization/weighted_synchronization.jl")
-# include("synchronization/synchronization_matlab.jl")
+#include("synchronization/synchronization_matlab.jl")
 
 #Synthetic
 include("synthetic/simulation.jl")

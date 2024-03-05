@@ -36,9 +36,10 @@ function angular_noise!(Z::Projectivity, θ::T) where T<:AbstractFloat
     angular_noise!( vec(Z.P) , θ) 
 end
 
-function compute_Q(Q, X_sol, X_gt, average_method)
+function compute_Q(X_sol, X_gt, average_method)
     n = length(X_gt)
     dims = size(X_gt[1].P,1)
+    Q = zeros(dims*dims, n)
     for i=1:n
         Q[:,i] = vec((inv(X_sol[i])*X_gt[i]).P)
     end
@@ -81,26 +82,35 @@ function compute_Z!(Z::AbstractArray{Projectivity}, X::AbstractVector{Projectivi
 end
 
 
-function create_synthetic(σ;noise_type="elemental_gaussian", error=orthogonal_projection_distance,average=spherical_mean, averaging_methods=["sphere"], kwargs...)
+function create_synthetic(σ;noise_type="elemental_gaussian", error=angular_distance,average=spherical_mean, averaging_methods=["sphere"], kwargs...)
     normalize_matrix = get(kwargs, :normalize_matrix, false)
     dims = get(kwargs, :dimension, 4)
     n = get(kwargs, :frames, 25)
     ρ = get(kwargs, :holes_density, 0.5) 
     Ρ = get(kwargs, :outliers, 0.0)
-    
-    X_gt = SizedVector{n, Projectivity}(repeat([Projectivity(false)],n)) # Ground truth nodes with dimxdim matrices
+    if n < 50
+        X_gt = SizedVector{n, Projectivity}(repeat([Projectivity(false)],n)) # Ground truth nodes with dimxdim matrices
+    else
+        X_gt = Vector{Projectivity}(repeat([Projectivity(false)], n))
+    end
+
     for i=1:n
         Xᵢ = rand(dims,dims)
         X_gt[i] = Projectivity(MMatrix{dims,dims,Float64}(Xᵢ/norm(Xᵢ)))
     end
 
     # Z = SizedMatrix{n,n,Projectivity}(repeat([Projectivity(false)],n,n)) # Relative projectivities
-    Z = SparseMatrixCSC{Projectivity, Integer}(repeat([Projectivity(false)],n,n)) # Relative projectivities
+    Z = SparseMatrixCSC{Projectivity, Int64}(repeat([Projectivity(false)],n,n)) # Relative projectivities
     compute_Z!(Z, X_gt;dims=dims, noise_type=noise_type, σ=σ)
     
     # Make holes
     A = missing
     while true 
+        # B = sprand(Bool, num_UT, ρ)
+        # B = sparse(ones(Bool,num_UT)) - B
+        # A = zeros(n,n)
+        # A[triu!(trues(size(A)),1)] = B
+        # A = A + triu(A,1)'
         A = sprand(n, n, ρ)
         A[A.!=0] .= 1.0
         A = sparse(ones(n,n)) - A
@@ -110,60 +120,67 @@ function create_synthetic(σ;noise_type="elemental_gaussian", error=orthogonal_p
             break
         end
     end
-    Z = Z.*A
-    
+    Z = SparseMatrixCSC{Projectivity, Int64}(Z.*A)
     # outliers
     num_UT =  length(findall(triu(A,1) .!= 0))
     num_outliers = Int(round(Ρ*num_UT))
     UT_outliers = StatsBase.sample( findall(triu(A,1).!=0), num_outliers, replace=false  )
     for ind in UT_outliers
-        Z[ind] = Projectivity(rand(dims,dims))
+        Z[ind] = Projectivity(SMatrix{dims,dims,Float64}(rand(dims,dims)))
         Z[CartesianIndex(reverse(ind.I))] = inv(Z[ind])
     end
 
     if normalize_matrix
         Z = unit_normalize.(Z)
     end
-    # return X_gt, Z
-    #Global Methods:
-    # X_solᵢ*Q = Xᵢ
-    # Either take Q = Xᵢ for the anchor node i, OR
-    # Take avg of Qᵢ = inv(X_solᵢ)*Xᵢ ∀ i ∈ 1..n
+    # return X_gt, Z, UT_outliers
     
-    Q = MMatrix{dims*dims, n, Float64}(zeros(dims*dims, n))
+    times = [];
+    #Global Methods:
     #1. Spanning Tree 
-    X_sol_spanningTree = spanning_tree_synchronization(copy(Z))
-    Q_avg_spanningTree = compute_Q(Q, X_sol_spanningTree, X_gt, average)
+    t = @elapsed X_sol_spanningTree = spanning_tree_synchronization(copy(Z))
+    Q_avg_spanningTree = compute_Q(X_sol_spanningTree, X_gt, average)
     err = compute_err(X_gt, X_sol_spanningTree, Q_avg_spanningTree, error)
-
+    times = [times;t]
     #2. Spectral 
-    # X_sol_spectral = projectivity_synch_spectral(copy(Z))
-    # Q_avg_spectral = compute_Q(Q, X_sol_spectral, X_gt, average)
-    # err = hcat(err, compute_err(X_gt, X_sol_spectral, Q_avg_spectral, error))
- 
+    X_sol_spectral = missing
+    Q_avg_spectral = missing
+    try
+        t = @elapsed X_sol_spectral = projectivity_synch_spectral(copy(Z))
+        Q_avg_spectral = compute_Q(X_sol_spectral, X_gt, average)
+    catch
+        t = @elapsed X_sol_spectral =  SizedVector{n, Projectivity}(repeat([Projectivity(SMatrix{dims,dims,Float64}(I))], n))
+        Q_avg_spectral = SMatrix{dims,dims,Float64}(I)
+    end    
+    err = hcat(err, compute_err(X_gt, X_sol_spectral, Q_avg_spectral, error))
+    times = [times;t]
     #3. Robust Spectral
     # X_sol_robust_spectral = iteratively_weighted_synchronization(copy(Z), "spectral", max_it=30, δ=1e-2)
     # Q_avg_robust_spectral = compute_Q(Q, X_sol_robust_spectral, X_gt, average)
     # err = hcat(err, compute_err(X_gt, X_sol_robust_spectral, Q_avg_robust_spectral, error))
-
     # Iterative methods
     for method in averaging_methods
         if occursin("irls", lowercase(method))
-            X_sol_iterative = iteratively_weighted_synchronization(copy(Z), method, error_measure=error, max_it=100, averaging_max_it=5, δ=deg2rad(0.1))
+            # X_sol_iterative = iteratively_weighted_synchronization(copy(Z), method, error_measure=error, max_it=20, averaging_max_it=5, δ=deg2rad(0.1))
+            t = @elapsed X_sol_iterative, wts = iteratively_weighted_synchronization(Z, method; max_it=20, averaging_max_it=15, averaging_max_it_init=60, δ_irls=deg2rad(1), kwargs... );
         else
-            X_sol_iterative = iterative_projective_synchronization(copy(Z);X₀=X_sol_spanningTree, averaging_method=method,kwargs...)
+            t = @elapsed X_sol_iterative = iterative_projective_synchronization(Z;averaging_method=method, kwargs...);
+            # X_sol_iterative = iterative_projective_synchronization(copy(Z);X₀=X_sol_spanningTree, averaging_method=method,kwargs...)
         end            
-        Q_avg_method = compute_Q(Q, X_sol_iterative, X_gt, average)
+        Q_avg_method = compute_Q(X_sol_iterative, X_gt, average)
         err = hcat(err, compute_err(X_gt, X_sol_iterative, Q_avg_method, error))
+        times = [times;t]
     end
 
-    return err
+    # return err
+    return times
     
 end
 
-# avg_methods = ["sphere", "sphere-robust", "sphere-irls" ];
-# avg_methods = ["sphere", "weiszfeld", "robust-sphere", "robust-A1L2", "robust-weiszfeld" ]
-# Err = create_synthetic(0.1, average=spherical_mean , averaging_methods=avg_methods, error=angular_distance, outliers=0.0,  frames=25);
-# rad2deg.(mean.(eachcol(Err)))
-
-# X_gt, Z = create_synthetic(0.1, outliers=0.3);
+# avg_methods = ["sphere", "weiszfeld"];
+# avg_methods = ["sphere", "sphere-irls"];
+# Err = create_synthetic(0.1, average=spherical_mean , averaging_methods=avg_methods, error=angular_distance, holes_density=0.0, outliers=0.0, anchor="centrality", update="start-centrality-update-all-random");
+# avg_methods = ["sphere", "weiszfeld"];
+# times = create_synthetic(0.1, average=spherical_mean , holes_density=0.9, averaging_methods=avg_methods, frames=25, error=angular_distance, outliers=0.0, anchor="centrality", update="start-centrality-update-all-random")
+# println(rad2deg.(mean.(eachcol(Err))))
+# X_gt, Z, outies = create_synthetic(0.1, outliers=0.2);

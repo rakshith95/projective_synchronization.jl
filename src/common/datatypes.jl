@@ -54,13 +54,15 @@ function unwrap!(Z′::AbstractMatrix{F}, Z::AbstractMatrix{Projectivity}) where
     if dims==0
         return false
     end
+    ze = zeros(F,dims,dims)
 
     for i=1:dims:(n*dims)-dims+1
         for j=1:dims:(n*dims)-dims+1
             if Z[div(i,dims)+1,div(j,dims)+1].exists
-                Z′[i:i+dims-1, j:j+dims-1] = @views Z[div(i,dims)+1,div(j,dims)+1].P
+                Z′[i:i+dims-1, j:j+dims-1] = Z[div(i,dims)+1,div(j,dims)+1].P
+                Z′[i, j] = 1000
             else
-                Z′[i:i+dims-1, j:j+dims-1] = zeros(dims,dims, F)
+                @views Z′[i:i+dims-1, j:j+dims-1] = ze
             end
         end
     end
@@ -90,6 +92,7 @@ function unit_normalize(P::Projectivity, metric)
             elseif d<0
                 return Projectivity(P.P/(Complex(d)^(1/n)))
             end
+            # return Projectivity(P.P/(Complex(d)^(1/n)))
         end
     else
         return Projectivity(false)

@@ -13,6 +13,7 @@ function spherical_mean(M::AbstractArray;  initialize=nothing, c₀=nothing, max
     # if the mean is already a point in the sphere  do nothing
     # this happens with a single point or coincident points 
     if !isapprox(norm(c₀),1.0)
+        unit_normalize!(c)
         it=0
         while it < max_iterations
             c_prev = c
@@ -59,17 +60,22 @@ function spherical_mean(M::AbstractArray, weights::AbstractVector{T};  initializ
     # this happens with a single point or coincident points 
     it=0
     if !isapprox(norm(c₀),1.0)
+        c = unit_normalize(c)
         while it < max_iterations
             c_prev = c            
             # If current iterate is equal to any of the points, then disturb it by some amount
-            if any(norm.(eachcol((M .- vec(c_prev)))) .< 1e-6)
             # if any(isapprox.(norm.(eachcol((M .- vec(c_prev)))),0))
-                Δ=rand(Distributions.Normal(0, σ),  size(M)[1])
-                c_prev = unit_normalize(c_prev + Δ)
-            end    
+            # if any(norm.(eachcol((M .- vec(c_prev)))) .< 1e-6)
+                # Δ=rand(Distributions.Normal(0, σ),  size(M)[1])
+                # c_prev = unit_normalize(c_prev + Δ)
+                # break
+            # end    
             c = SVector{length(c_prev)}(zero(c_prev))
             for i in collect(1:size(M,2))
-                c = c + (weights[i]*view(M,:,i))/ sqrt( 1 - (c_prev'*view(M,:,i))^2 )
+                if dot(c_prev,view(M,:,i)) < 1
+                    c = c + (weights[i]*view(M,:,i))/ sqrt( 1 - (c_prev'*view(M,:,i))^2 )
+                end
+                # CHECK HOW OFTEN WE END UP IN THE ELSE 
             end
             if isapprox(norm(c),0.0)
                 c = c_prev
