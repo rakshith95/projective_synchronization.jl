@@ -18,10 +18,10 @@ function run_sync_from_mat(Z_filename::String, weights_filename, output_filename
     X₀ = projective_synchronization.spanning_tree_synchronization(copy(Z))
     if occursin("irls", method)
         println("Running IRLS")
-        X, wts = projective_synchronization.iteratively_weighted_synchronization(Z, method, weights=weights_mat, weight_function=projective_synchronization.cauchy, c=projective_synchronization.c_cauchy, max_it=20, averaging_max_it=15, averaging_max_it_init=75, δ_irls=deg2rad(0.1), δ=1e-12, anchor="centrality", update="start-centrality-update-all" );
+        t = @elapsed X, wts = projective_synchronization.iteratively_weighted_synchronization(Z, method, weights=weights_mat, weight_function=projective_synchronization.cauchy, c=projective_synchronization.c_cauchy, max_it=20, averaging_max_it=15, averaging_max_it_init=75, δ_irls=deg2rad(0.1), δ=1e-12, anchor="centrality", update="start-centrality-update-all" );
         # X = projective_synchronization.spanning_tree_synchronization(copy(Z))
     else
-        X = projective_synchronization.iterative_projective_synchronization(Z, averaging_method=method, weights=weights_mat, δ=1e-12, max_iterations=n*100, anchor="fixed", update="start-centrality-update-all");
+        t = @elapsed X = projective_synchronization.iterative_projective_synchronization(Z, averaging_method=method, weights=weights_mat, δ=1e-12, max_iterations=n*100, anchor="centrality", update="start-centrality-update-all");
     end
     X_vec = repeat([zeros(dimension, dimension)], n)
     for i=1:n
@@ -29,7 +29,6 @@ function run_sync_from_mat(Z_filename::String, weights_filename, output_filename
         projective_synchronization.unwrap!(X[i], tmp)
         X_vec[i] = tmp
     end
-
     #=
     Ẑ = SparseArrays.SparseMatrixCSC{projective_synchronization.Projectivity, Integer}(repeat([projective_synchronization.Projectivity(false )],n,n)) # Relative projectivities
     # compute_Z!(Ẑ, X_gt);
@@ -48,6 +47,9 @@ function run_sync_from_mat(Z_filename::String, weights_filename, output_filename
     =#
     file = MAT.matopen(output_filename, "w")
     write(file, "T", X_vec)
+    close(file)
+    file = MAT.matopen(replace(output_filename, "synch.mat"=>"time.mat"), "w")
+    write(file, "t", t)
     close(file)
 end
 

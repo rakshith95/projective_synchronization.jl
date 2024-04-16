@@ -104,15 +104,14 @@ end
 
 
 # all_methods = ["spanning-tree"; "spectral"; avg_methods];
-# T_frames_pointOne = synchronization_timer("frames"; methods=avg_methods,  σ_fixed=0.1 ,parameter_min=10, parameter_range=15, parameter_max=100, num_trials=1000, error=angular_distance);
-# avg_methods = ["dyadic", "sphere", "weiszfeld"];
 # T_holesDensity_pointOne = synchronization_timer("density";methods=avg_methods, σ_fixed=0.1 ,parameter_min=0.0, parameter_range=0.05, parameter_max=0.95, num_trials=1000, error=angular_distance);
-# Ts_matrix = stack(stack.(T_holesDensity_pointOne)');
+# avg_methods = ["dyadic", "sphere", "weiszfeld"];
+# T_frames_pointOne = synchronization_timer("frames"; methods=avg_methods,  σ_fixed=0.1 ,parameter_min=10, parameter_range=15, parameter_max=100, num_trials=1000, error=angular_distance);
+# Ts_matrix = stack(stack.(T_frames_pointOne)');
 # Ts_matrix = dropdims(Ts_matrix, dims = tuple(findall(size(Ts_matrix) .== 1)...));
-# file = MAT.matopen("times_new_holes.mat", "w")
-# write(file, "T_fixed", Ts_matrix)
+# file = MAT.matopen("times_new_frames_final.mat", "w")
+# write(file, "T", Ts_matrix)
 # close(file)
- 
 
 
 

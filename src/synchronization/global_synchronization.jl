@@ -95,7 +95,7 @@ function spanning_tree_synchronization(Z::AbstractMatrix{Projectivity})
     # Get spanning tree
     ST = prim_mst(G)
     root_node = setdiff(collect(1:n), [v.dst for v in ST])[1]
-    
+
     for e in ST
         src = e.src
         dst = e.dst
@@ -112,7 +112,7 @@ function spanning_tree_synchronization(Z::AbstractMatrix{Projectivity})
         for p in reverse(path)
             X[p] = inv(Z[ ST[p-1].src , p])*X[ST[p-1].src] 
         end
-        
+        # println(src, "\t", dst, "\t", path)
         X[dst] = inv(Z[e.src , dst])*X[e.src] 
     end 
 

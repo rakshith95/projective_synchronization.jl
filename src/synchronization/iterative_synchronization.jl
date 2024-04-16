@@ -73,16 +73,11 @@ function iterative_projective_synchronization(Z::AbstractMatrix{Projectivity};Xâ
         end
     end
     
-    C=missing
-    try
-        C = eigenvector_centrality(G)
-    catch
-        C = degree_centrality(G, normalize=false)
-    end
+    C = eigenvector_centrality(G)
     if median(C) < 1e-5
-        C = degree_centrality(G, normalize=false)
+        C = degree_centrality(G, normalize=true)
     end
-    
+
     if !isnothing(set_anchor)
         if occursin("centrality", set_anchor)
             # Set anchor node according to centrality
@@ -113,7 +108,7 @@ function iterative_projective_synchronization(Z::AbstractMatrix{Projectivity};Xâ
     nodes = collect(1:n)
     if occursin("start", lowercase(update_method))
         if occursin("centrality", lowercase(update_method))
-            nodes = sortperm(C)
+            nodes = sortperm(C, rev=true)
             # Try reverse
         else
             nodes = collect(1:n)
@@ -175,7 +170,7 @@ function iterative_projective_synchronization(Z::AbstractMatrix{Projectivity};Xâ
         end
         iter += 1
     end
-    # println(iter)
+    println(iter)
     return X
 end   
 
