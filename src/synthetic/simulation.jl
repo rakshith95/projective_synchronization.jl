@@ -24,7 +24,7 @@ function angular_noise!(x::AbstractVector{T}, θ::T) where T
 end
 
 function angular_noise(x::AbstractVector{T}, θ::T) where T
-    x_cpy = copy(x)
+    x_cpy = Vector{T}(copy(x))
     angular_noise!(x_cpy, θ)
     return x_cpy
 end
