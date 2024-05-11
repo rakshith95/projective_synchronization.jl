@@ -170,7 +170,7 @@ function iterative_projective_synchronization(Z::AbstractMatrix{Projectivity};Xâ
         end
         iter += 1
     end
-    println(iter)
+    # println(iter)
     return X
 end   
 

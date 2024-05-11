@@ -60,7 +60,6 @@ function unwrap!(Z′::AbstractMatrix{F}, Z::AbstractMatrix{Projectivity}) where
         for j=1:dims:(n*dims)-dims+1
             if Z[div(i,dims)+1,div(j,dims)+1].exists
                 Z′[i:i+dims-1, j:j+dims-1] = Z[div(i,dims)+1,div(j,dims)+1].P
-                Z′[i, j] = 1000
             else
                 @views Z′[i:i+dims-1, j:j+dims-1] = ze
             end

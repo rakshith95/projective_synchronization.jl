@@ -82,12 +82,13 @@ function compute_Z!(Z::AbstractArray{Projectivity}, X::AbstractVector{Projectivi
 end
 
 
-function create_synthetic(σ;noise_type="elemental_gaussian", error=angular_distance,average=spherical_mean, averaging_methods=["sphere"], kwargs...)
+function create_synthetic(σ;noise_type="angular", error=angular_distance,average=spherical_mean, averaging_methods=["sphere"], kwargs...)
     normalize_matrix = get(kwargs, :normalize_matrix, false)
     dims = get(kwargs, :dimension, 4)
     n = get(kwargs, :frames, 25)
     ρ = get(kwargs, :holes_density, 0.5) 
     Ρ = get(kwargs, :outliers, 0.0)
+    # init = get(kwargs, :initialization, "Identity")
     if n < 50
         X_gt = SizedVector{n, Projectivity}(repeat([Projectivity(false)],n)) # Ground truth nodes with dimxdim matrices
     else
@@ -153,6 +154,7 @@ function create_synthetic(σ;noise_type="elemental_gaussian", error=angular_dist
         Q_avg_spectral = SMatrix{dims,dims,Float64}(I)
     end    
     err = hcat(err, compute_err(X_gt, X_sol_spectral, Q_avg_spectral, error))
+    # println(err)
     times = [times;t]
     #3. Robust Spectral
     # X_sol_robust_spectral = iteratively_weighted_synchronization(copy(Z), "spectral", max_it=30, δ=1e-2)
@@ -161,12 +163,18 @@ function create_synthetic(σ;noise_type="elemental_gaussian", error=angular_dist
     
     # Iterative methods
     for method in averaging_methods
+        X_init = nothing
+        # if occursin("spanning", lowercase(method)) || occursin("tree", lowercase(method)) || occursin("st", lowercase(method))
+        if occursin("init", lowercase(method))
+            X_init = X_sol_spanningTree
+        end
+
         if occursin("irls", lowercase(method))
             # X_sol_iterative = iteratively_weighted_synchronization(copy(Z), method, error_measure=error, max_it=20, averaging_max_it=5, δ=deg2rad(0.1))
-            t = @elapsed X_sol_iterative, wts = iteratively_weighted_synchronization(Z, method; max_it=20, averaging_max_it=15, averaging_max_it_init=60, δ_irls=deg2rad(1), kwargs... );
+            t = @elapsed X_sol_iterative, wts = iteratively_weighted_synchronization(Z, method; X₀=X_init, max_it=20, averaging_max_it=15, averaging_max_it_init=60, δ_irls=deg2rad(1), kwargs... );
         else
-            t = @elapsed X_sol_iterative = iterative_projective_synchronization(Z;averaging_method=method, kwargs...);
-            # X_sol_iterative = iterative_projective_synchronization(copy(Z);X₀=X_sol_spanningTree, averaging_method=method,kwargs...)
+            t = @elapsed X_sol_iterative = iterative_projective_synchronization(Z;X₀=X_init, averaging_method=method, kwargs...);
+            # X_sol_iterative = iterative_projective_synchronization(copy(Z);X₀=X_init, averaging_method=method,kwargs...)
         end            
         Q_avg_method = compute_Q(X_sol_iterative, X_gt, average)
         err = hcat(err, compute_err(X_gt, X_sol_iterative, Q_avg_method, error))
@@ -177,11 +185,12 @@ function create_synthetic(σ;noise_type="elemental_gaussian", error=angular_dist
     # return times
     
 end
-# avg_methods = ["sphere", "weiszfeld"];
+# avg_methods = ["sphere-irls", "sphere-init"];
 # avg_methods = ["sphere", "sphere-irls"];
-# Err = create_synthetic(0.1, average=spherical_mean , averaging_methods=avg_methods, error=angular_distance, holes_density=0.0, outliers=0.0, anchor="centrality", update="start-centrality-update-all-random");
+# Err = create_synthetic(0.1, average=spherical_mean , averaging_methods=avg_methods, outliers=0.3, error=angular_distance, anchor="centrality", update="start-centrality-update-all-random");
 # Err = create_synthetic(0.1, average=spherical_mean , averaging_methods=avg_methods, error=angular_distance, holes_density=0.3);
 # avg_methods = ["sphere", "weiszfeld"];
 # times = create_synthetic(0.1, average=spherical_mean , holes_density=0.9, averaging_methods=avg_methods, frames=25, error=angular_distance, outliers=0.0, anchor="centrality", update="start-centrality-update-all-random")
+# rad2deg.(mean.(eachcol(Err)))
 # println(rad2deg.(mean.(eachcol(Err))))
 # X_gt, Z, outies = create_synthetic(0.1, outliers=0.2);
