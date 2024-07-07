@@ -155,10 +155,6 @@ function create_synthetic(σ;noise_type="angular", error=angular_distance,averag
     end    
     err = hcat(err, compute_err(X_gt, X_sol_spectral, Q_avg_spectral, error))
     times = [times;t]
-    #3. Robust Spectral
-    # X_sol_robust_spectral = iteratively_weighted_synchronization(copy(Z), "spectral", max_it=30, δ=1e-2)
-    # Q_avg_robust_spectral = compute_Q(Q, X_sol_robust_spectral, X_gt, average)
-    # err = hcat(err, compute_err(X_gt, X_sol_robust_spectral, Q_avg_robust_spectral, error))
     
     # Iterative methods
     for method in averaging_methods
@@ -184,12 +180,3 @@ function create_synthetic(σ;noise_type="angular", error=angular_distance,averag
     # return times
     
 end
-# avg_methods = ["sphere", "sphere-init", "weiszfeld", "weiszfeld-init"];
-# avg_methods = ["sphere", "sphere-irls"];
-# Err = create_synthetic(0.03, average=spherical_mean , averaging_methods=avg_methods, error=angular_distance, anchor="centrality", update="start-centrality-update-all-random");
-# Err = create_synthetic(0.1, average=spherical_mean , averaging_methods=avg_methods, error=angular_distance, holes_density=0.3);
-# avg_methods = ["sphere", "weiszfeld"];
-# times = create_synthetic(0.1, average=spherical_mean , holes_density=0.9, averaging_methods=avg_methods, frames=25, error=angular_distance, outliers=0.0, anchor="centrality", update="start-centrality-update-all-random")
-# rad2deg.(mean.(eachcol(Err)))
-# println(rad2deg.(mean.(eachcol(Err))))
-# X_gt, Z, outies = create_synthetic(0.1, outliers=0.2);

@@ -174,5 +174,3 @@ using JLD2
 @load "synchronization_sensitivity_noise_zero_to_zeroPointtwo.jld2"  
 @load "saved_envs/synchronization_sensitivity_noise_zero_pointOne_point5.jld2"
 =#
-
-
