@@ -176,7 +176,11 @@ function create_synthetic(σ;noise_type="angular", error=angular_distance,averag
         times = [times;t]
     end
 
-    return err
-    # return times
+    return_val = get(kwargs, :return_value, "error")
+    if occursin("err", return_val)
+        return err
+    elseif occursin("times", return_val)
+        return times
+    end
     
 end

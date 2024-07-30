@@ -1,5 +1,4 @@
-function compute_weights(Z::AbstractMatrix, Ẑ::AbstractMatrix, dims::Int;error_measure=angular_distance, weight_function=cauchy, c=c_cauchy, h=h_robust)
-    n = size(Z,1)
+function compute_weights(Z::AbstractMatrix, Ẑ::AbstractMatrix;error_measure=angular_distance, weight_function=cauchy, c=c_cauchy, h=h_robust)
     E_UT = error_measure.(UpperTriangular(Z),UpperTriangular(Ẑ))
     E_LT = error_measure.(LowerTriangular(Z),LowerTriangular(Ẑ))
     E = min.(E_UT, E_LT')
@@ -11,11 +10,7 @@ function compute_weights(Z::AbstractMatrix, Ẑ::AbstractMatrix, dims::Int;error
     if iszero(s)
         return false
     end
-    if n*dims<=100
-        wts = SMatrix{n,n,Float64}(weight_function.(E/(h*c*s)) )
-    else
-        wts = weight_function.(E/(h*c*s)) 
-    end
+    wts = weight_function.(E/(h*c*s)) 
 end
 
 function  iteratively_weighted_synchronization(Z::AbstractArray{Projectivity}, synchronization_method::String;weights=nothing, X₀=nothing, averaging_max_it=10, weight_function=cauchy, c=c_cauchy, h=h_robust, error_measure=angular_distance, max_it=100, δ_irls=1e-6, kwargs...)
@@ -56,7 +51,7 @@ function  iteratively_weighted_synchronization(Z::AbstractArray{Projectivity}, s
         compute_Z!(Ẑ, X)
         # How to deal with the fact that error(a, b) !=  error(inv(a), inv(b)). Discuss further
         wts_prev = wts
-        wts = compute_weights(Z, Ẑ, dims, error_measure=error_measure, weight_function=weight_function, c=c, h=h)
+        wts = compute_weights(Z, Ẑ, error_measure=error_measure, weight_function=weight_function, c=c, h=h)
         if typeof(wts) == Bool
             return X, wts_prev
         end

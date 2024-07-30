@@ -12,6 +12,7 @@ function angular_distance(a::AbstractVector{T}, b::AbstractVector{T}) where T<:A
 end
 angular_distance(A::Projectivity, B::Projectivity) = A.exists && B.exists ? angular_distance(vec(A.P), vec(B.P)) : Inf
 angular_distance(a::Bool, b::Bool) = a && b ? 1.0 : 0.0
+angular_distance(A::AbstractMatrix{T}, B::AbstractMatrix{T}) where T<:AbstractFloat = angular_distance(vec(A), vec(B))
 
 function normalized_euclidean_distance(a::AbstractVector, b::AbstractVector; p=2)
     a = a/norm(a)
