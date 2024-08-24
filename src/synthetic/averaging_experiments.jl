@@ -12,7 +12,7 @@ function create_environment(σ;kwargs...)
     outlier_inds = StatsBase.sample(collect(1:num_vecs), Int(round(num_vecs*Ρ)), replace=false)
     for i=1:num_vecs
         θ = abs(rand(Distributions.Normal(0, σ)))
-        M[:,i] = i in outlier_inds ? rand(dim) : angular_noise(gt_vec, θ)
+        M[:,i] = i in outlier_inds ? rand(dim) : rotate_vector(gt_vec, θ)
     end
     return gt_vec,M
 end

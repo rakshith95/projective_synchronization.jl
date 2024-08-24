@@ -1,4 +1,4 @@
-function angular_noise!(x::AbstractVector{T}, θ::T) where T
+function rotate_vector!(x::AbstractVector{T}, θ::T) where T
     dim = length(x)
     B = missing
     while true
@@ -23,17 +23,17 @@ function angular_noise!(x::AbstractVector{T}, θ::T) where T
     RotateUnitInDirection!(x, v)
 end
 
-function angular_noise(x::AbstractVector{T}, θ::T) where T
+function rotate_vector(x::AbstractVector{T}, θ::T) where T
     x_cpy = Vector{T}(copy(x))
-    angular_noise!(x_cpy, θ)
+    rotate_vector!(x_cpy, θ)
     return x_cpy
 end
 
-function angular_noise!(Z::Projectivity, θ::T) where T<:AbstractFloat
+function rotate_vector!(Z::Projectivity, θ::T) where T<:AbstractFloat
     if !isapprox(norm(Z.P), 1.0)
         unit_normalize!(Z)
     end
-    angular_noise!( vec(Z.P) , θ) 
+    rotate_vector!( vec(Z.P) , θ) 
 end
 
 function compute_Q(X_sol, X_gt, average_method)
@@ -74,7 +74,7 @@ function compute_Z!(Z::AbstractArray{Projectivity}, X::AbstractVector{Projectivi
             elseif occursin("angular", noise_type)
                 Z[i,j] = unit_normalize(X[i]*inv(X[j]))
                 θ = abs(rand(Distributions.Normal(0, σ)))
-                angular_noise!(Z[i,j], θ)
+                rotate_vector!(Z[i,j], θ)
             end
             Z[j,i] = inv(Z[i,j]) # Symmetric block is inverse
         end
