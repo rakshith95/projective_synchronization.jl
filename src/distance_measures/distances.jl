@@ -15,7 +15,7 @@ angular_distance(a::Bool, b::Bool) = a && b ? 1.0 : 0.0
 
 function angular_distance(A::AbstractMatrix{T}, B::AbstractMatrix{T}) where T<:AbstractFloat
     if iszero(A) && iszero(B)
-        return Inf
+        return 0.0
     elseif (!iszero(A) && iszero(B)) || (iszero(A) && !iszero(B))
         return Inf
     else
