@@ -2,9 +2,9 @@ function angular_distance(a::AbstractVector{T}, b::AbstractVector{T}) where T<:A
     a = a/norm(a)
     b = b/norm(b)
     dotval = dot(a,b)
-    if isapprox(dotval, 1.0)
+    if (dotval > 1.0) && isapprox(dotval, 1.0)
         dotval = 1.0
-    elseif isapprox(dotval, -1.0)
+    elseif (dotval < -1.0) && isapprox(dotval, -1.0)
         dotval = -1.0
     end
     θ = acos(dotval)
