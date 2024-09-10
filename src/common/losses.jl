@@ -10,8 +10,10 @@ const c_logistic = 1.205
 const c_talwar = 2.795
 
 cauchy(r)   = 1 / (1 + r^2)
+cauchy_sq(r) = 1 / (1 + r^2)^2
 andrews(r)  = (abs(r)<pi) * sin(r) / r
-huber(r)    = 1 / max(1.0, abs(r)) 
+huber(r)    = 1 / max(1.0, abs(r))
+huber(δ,r) = 1 / max(δ, abs(r)) 
 welsch(r)   = exp(-(r^2))
 fair(r)     = 1 / (1 + abs(r))
 bisquare(r) = (abs(r) < 1) * (1 - r^2)^2
