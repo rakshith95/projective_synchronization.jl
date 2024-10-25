@@ -25,6 +25,7 @@ end
 
 function rotate_vector(x::AbstractVector{T}, θ::T) where T
     x_cpy = Vector{T}(copy(x))
+    unit_normalize!(x_cpy)
     rotate_vector!(x_cpy, θ)
     return x_cpy
 end
