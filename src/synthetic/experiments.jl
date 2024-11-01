@@ -165,12 +165,3 @@ end
 # file = MAT.matopen("times_initST_100trials.mat", "w")
 # write(file, "T", Ts_matrix)
 # close(file)
-
-
-#=
-using JLD2
-@save "varying_frames_fixedNoise_pointFive.jld2" E_frames_pointFive
-@save "synchronization_sensitivity_noise_zero_to_zeroPointtwo.jld2" E
-@load "synchronization_sensitivity_noise_zero_to_zeroPointtwo.jld2"  
-@load "saved_envs/synchronization_sensitivity_noise_zero_pointOne_point5.jld2"
-=#
