@@ -114,6 +114,40 @@ function synchronization_timer(vary_parameter;methods=["spanning-tree", "spectra
 end
     
 
+function matlab_interface(F, matches, tracks;dimension=4, method="sphere")
+    Z_mat,Ps_med, finalTriplets, normMat, t = MATLAB.mxcall(:getProjectiveEdges, 5, F, matches, tracks );
+    n = div(size(Z_mat,1), dimension)
+    Z = SparseArrays.SparseMatrixCSC{Projectivity, Integer}(repeat([Projectivity(false)],n,n)) # Relative projectivities
+    wrap!(Z, Z_mat, dimension)
+    t_synch = @elapsed X, wts = iteratively_weighted_synchronization(Z, method,  weight_function=cauchy, c=c_cauchy, max_it=20, averaging_max_it=15, averaging_max_it_init=75, δ_irls=deg2rad(0.1), δ=1e-12, anchor="centrality", update="start-centrality-update-all" );
+    X_vec = repeat([zeros(dimension, dimension)], n)
+    for i=1:n
+        tmp = zeros(dimension, dimension)
+        unwrap!(X[i], tmp)
+        X_vec[i] = tmp
+    end    
+    Ps, t2 = MATLAB.mxcall(:get_cams_synch, 2, X_vec, Ps_med, finalTriplets, normMat );
+    return Ps, t+t_synch+t2
+end
+
+# MATLAB.mat"addpath('/home/rakshith/PoliMi/Projective Synchronization/projective-synchronization-julia/GPSFM-code/GPSFM')"
+# MATLAB.mat"addpath('/home/rakshith/PoliMi/Projective Synchronization/projective-synchronization-julia/GPSFM-code/GPSFM/3rdparty/fromPPSFM/')"
+# MATLAB.mat"addpath('/home/rakshith/PoliMi/Projective Synchronization/projective-synchronization-julia/GPSFM-code/GPSFM/3rdparty/vgg_code/')"
+
+# folder_path = "/home/rakshith/PoliMi/Projective Synchronization/projective-synchronization-julia/GPSFM-code/DataSet Proj/"
+# datasets = ["Dino 319","Dino 4983","Corridor", "House", "Gustav Vasa", "Folke Filbyter", "Park Gate", "Nijo", "Drinking Fountain", "Golden Statue", "Jonas Ahls", "De Guerre", "Dome", "Alcatraz Courtyard", "Alcatraz Water Tower", "Cherub", "Pumpkin", "Sphinx", "Toronto University", "Sri Thendayuthapani", "Porta san Donato", "Buddah Tooth", "Tsar Nikolai I", "Smolny Cathedral", "Skansen Kronan"];
+# dataset_file = folder_path*datasets[1]*".mat" 
+
+# file = MAT.matopen(dataset_file)
+# vars = read(file);
+# close(file)
+# F = vars["FN"];
+# tracks = vars["M"];
+# matches = vars["pointMatchesInliers"];
+
+# Ps,t = matlab_interface(F, matches, tracks);
+# err, BAt1, BAt2 = MATLAB.mxcall(:eval_from_julia, 3, Ps, tracks );
+
 # avg_methods = ["sphere", "sphere-init", "weiszfeld", "weiszfeld-init"];
 # all_methods = ["spanning-tree"; "spectral"; avg_methods];
 # E_noise_initST = synchronization_sensitivity(methods=avg_methods, noise_type="angular", parameter_min=0.0, parameter_range=0.025, parameter_max=0.2, num_trials=200, error=angular_distance);
@@ -139,7 +173,7 @@ end
 
 
 # E_noise = synchronization_sensitivity(methods=avg_methods, noise_type="angular", parameter_min=0.0, parameter_range=0.025, parameter_max=0.2, num_trials=1000, error=angular_distance);
-# E_holesDensity_pointOne = synchronization_sensitivity(;methods=avg_methods, noise_type="angular", vary_parameter="dens    ity", σ_fixed=0.1 ,parameter_min=0.0, parameter_range=0.05, parameter_max=0.95, num_trials=1000, error=angular_distance);
+# E_holesDensity_pointOne = synchronization_sensitivity(;methods=avg_methods, noise_type="angular", vary_parameter="density", σ_fixed=0.1 ,parameter_min=0.0, parameter_range=0.05, parameter_max=0.95, num_trials=1000, error=angular_distance);
 # E_outliers_Zero = synchronization_sensitivity(methods=avg_methods, noise_type="angular", vary_parameter="outliers", σ_fixed=0.0 ,parameter_min=0.0, parameter_range=0.1, parameter_max=0.6, num_trials=1000, error=angular_distance);
 # E_outliers_pointOne = synchronization_sensitivity(methods=avg_methods, noise_type="angular", vary_parameter="outliers", σ_fixed=0.1, parameter_min=0.0, parameter_range=0.1, parameter_max=0.6, num_trials=1000, error=angular_distance);
 # E_frames_pointOne = synchronization_sensitivity(methods=avg_methods, noise_type="angular", vary_parameter="frames", σ_fixed=0.1 ,parameter_min=10, parameter_range=15, parameter_max=100, num_trials=1000, error=angular_distance);

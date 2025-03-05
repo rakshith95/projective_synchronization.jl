@@ -1,6 +1,6 @@
 module projective_synchronization
 
-import StructArrays, Distributions, MAT, StatsBase, Random
+import StructArrays, Distributions, MAT, StatsBase, Random, MATLAB
 
 using LinearAlgebra, StaticArrays, Statistics, SparseArrays, Graphs, Arpack, ProgressBars, TiledIteration
 
