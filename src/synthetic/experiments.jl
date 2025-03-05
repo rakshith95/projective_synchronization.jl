@@ -114,8 +114,8 @@ function synchronization_timer(vary_parameter;methods=["spanning-tree", "spectra
 end
     
 
-function matlab_interface(F, matches, tracks;dimension=4, method="sphere")
-    Z_mat,Ps_med, finalTriplets, normMat, t = MATLAB.mxcall(:getProjectiveEdges, 5, F, matches, tracks );
+function matlab_interface(F, matches, tracks;dimension=4, method="sphere", sim=false)
+    Z_mat,Ps_med, finalTriplets, normMat, t = MATLAB.mxcall(:getProjectiveEdges, 5, F, matches, tracks, sim );
     n = div(size(Z_mat,1), dimension)
     Z = SparseArrays.SparseMatrixCSC{Projectivity, Integer}(repeat([Projectivity(false)],n,n)) # Relative projectivities
     wrap!(Z, Z_mat, dimension)
