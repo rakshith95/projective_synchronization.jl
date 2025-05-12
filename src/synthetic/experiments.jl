@@ -115,7 +115,7 @@ end
     
 
 function matlab_interface(F, matches, tracks;dimension=4, method="sphere", sim=false)
-    Z_mat,Ps_med, finalTriplets, normMat, t = MATLAB.mxcall(:getProjectiveEdges, 5, F, matches, tracks, [], sim );
+    Z_mat,Ps_med, finalTriplets, normMat, F_norm, t = MATLAB.mxcall(:getProjectiveEdges, 5, F, matches, tracks, [], sim );
     n = div(size(Z_mat,1), dimension)
     Z = SparseArrays.SparseMatrixCSC{Projectivity, Integer}(repeat([Projectivity(false)],n,n)) # Relative projectivities
     wrap!(Z, Z_mat, dimension)
@@ -127,7 +127,7 @@ function matlab_interface(F, matches, tracks;dimension=4, method="sphere", sim=f
         X_vec[i] = tmp
     end    
     Ps, t2 = MATLAB.mxcall(:get_cams_synch, 2, X_vec, Ps_med, finalTriplets, normMat );
-    return Ps, t+t_synch+t2
+    return Ps, t+t_synch+t2, F_norm, normMat    
 end
 
 # MATLAB.mat"addpath('/home/rakshith/PoliMi/Projective Synchronization/projective-synchronization-julia/GPSFM-code/GPSFM')"
