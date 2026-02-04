@@ -121,7 +121,9 @@ function unit_normalize(v::AbstractVector{T}) where T
 end
 
 function unit_normalize!(v::AbstractVector{T}) where T
-    v[:] = v/norm(v)
+    # v[:] = v/norm(v)
+    vnorm = norm(v)
+    lmul!(1/vnorm, v)
 end
 #Overload operators for the Projectivity struct
 
