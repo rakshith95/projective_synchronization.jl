@@ -1,6 +1,5 @@
-function rotate_vector!(x::AbstractVector{T}, θ::T; normalize=true) where T
+function rotate_vector!(x::AbstractVector{T}, θ::T; normalize=true, norm_x=1.0) where T
     dim = length(x)
-    norm_x = norm(x)
     B = missing
     while true
         B = rand(dim,dim)
@@ -29,8 +28,13 @@ end
 
 function rotate_vector(x::AbstractVector{T}, θ::T; normalize=true) where T
     x_cpy = Vector{T}(copy(x))
+    norm_x = norm(x_cpy)
     unit_normalize!(x_cpy)
-    rotate_vector!(x_cpy, θ; normalize=normalize)
+    if normalize
+        rotate_vector!(x_cpy, θ; normalize=normalize)
+    else
+        rotate_vector!(x_cpy, θ; normalize=normalize, norm_x=norm_x)
+    end
     return x_cpy
 end
 
