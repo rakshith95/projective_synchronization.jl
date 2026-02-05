@@ -1,5 +1,6 @@
-function rotate_vector!(x::AbstractVector{T}, θ::T) where T
+function rotate_vector!(x::AbstractVector{T}, θ::T; normalize=true) where T
     dim = length(x)
+    norm_x = norm(x)
     B = missing
     while true
         B = rand(dim,dim)
@@ -21,12 +22,15 @@ function rotate_vector!(x::AbstractVector{T}, θ::T) where T
 
     # Take vector from tangent space to sphere
     RotateUnitInDirection!(x, v)
+    if !normalize
+        lmul!(norm_x,x)
+    end
 end
 
-function rotate_vector(x::AbstractVector{T}, θ::T) where T
+function rotate_vector(x::AbstractVector{T}, θ::T; normalize=true) where T
     x_cpy = Vector{T}(copy(x))
     unit_normalize!(x_cpy)
-    rotate_vector!(x_cpy, θ)
+    rotate_vector!(x_cpy, θ; normalize=normalize)
     return x_cpy
 end
 
