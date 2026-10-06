@@ -2,8 +2,15 @@ function compute_weights(Z::AbstractMatrix, Ẑ::AbstractMatrix;error_measure=an
     E_UT = error_measure.(UpperTriangular(Z),UpperTriangular(Ẑ))
     E_LT = error_measure.(LowerTriangular(Z),LowerTriangular(Ẑ))
     E = min.(E_UT, E_LT')
-    E = E + E'
-    s = StatsBase.mad(E[.!isinf.(E)])
+    for i=1:size(E,1)-1
+        for j=i+1:size(E,1)
+            if !isinf(E[i,j])
+                E[j,i] = E[i,j]
+            end
+        end
+    end
+    # E = E + E'
+    s = max(1e-10, StatsBase.mad(E[.!isinf.(E)]) )
     if iszero(s)
         s = std(E[.!isinf.(E)])
     end
@@ -36,6 +43,7 @@ function  iteratively_weighted_synchronization(Z::AbstractArray{Projectivity}, s
     else
         wts = weights
     end
+    X= missing;
     X_prev = sparse(repeat([Projectivity(SMatrix{dims,dims, Float64}(I))], n)) 
     Ẑ = SparseMatrixCSC{Projectivity, Integer}(repeat([Projectivity(false)],n,n)) # Relative projectivities
     while !exit_loop && iter < max_it
